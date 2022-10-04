@@ -18,6 +18,8 @@ package validation
 
 import (
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"regexp"
 	"strings"
 
 	genericvalidation "k8s.io/apimachinery/pkg/api/validation"
@@ -28,6 +30,7 @@ import (
 	"k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/kubernetes/pkg/apis/admissionregistration"
 	admissionregistrationv1 "k8s.io/kubernetes/pkg/apis/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/kubernetes/pkg/apis/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/kubernetes/pkg/apis/admissionregistration/v1beta1"
 )
 
@@ -156,7 +159,8 @@ func validateRule(rule *admissionregistration.Rule, fldPath *field.Path, allowSu
 // 1.15: server understands v1beta1; accepted versions are ["v1beta1"]
 // 1.16: server understands v1, v1beta1; accepted versions are ["v1beta1"]
 // 1.17+: server understands v1, v1beta1; accepted versions are ["v1","v1beta1"]
-var AcceptedAdmissionReviewVersions = []string{admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.Version}
+// 1.26: server understands v1alpha1; accepted version are ["v1", "v1beta1", "v1alpha1"]
+var AcceptedAdmissionReviewVersions = []string{admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1alpha1.SchemeGroupVersion.Version}
 
 func isAcceptedAdmissionReviewVersion(v string) bool {
 	for _, version := range AcceptedAdmissionReviewVersions {
@@ -390,6 +394,28 @@ var supportedReinvocationPolicies = sets.NewString(
 	string(admissionregistration.IfNeededReinvocationPolicy),
 )
 
+var supportedValidationReson = sets.NewString(
+	string(metav1.StatusReasonUnknown),
+	string(metav1.StatusReasonUnauthorized),
+	string(metav1.StatusReasonForbidden),
+	string(metav1.StatusReasonNotFound),
+	string(metav1.StatusReasonAlreadyExists),
+	string(metav1.StatusReasonConflict),
+	string(metav1.StatusReasonGone),
+	string(metav1.StatusReasonInvalid),
+	string(metav1.StatusReasonServerTimeout),
+	string(metav1.StatusReasonTimeout),
+	string(metav1.StatusReasonTooManyRequests),
+	string(metav1.StatusReasonBadRequest),
+	string(metav1.StatusReasonMethodNotAllowed),
+	string(metav1.StatusReasonNotAcceptable),
+	string(metav1.StatusReasonRequestEntityTooLarge),
+	string(metav1.StatusReasonUnsupportedMediaType),
+	string(metav1.StatusReasonInternalError),
+	string(metav1.StatusReasonExpired),
+	string(metav1.StatusReasonServiceUnavailable),
+)
+
 func hasWildcardOperation(operations []admissionregistration.OperationType) bool {
 	for _, o := range operations {
 		if o == admissionregistration.OperationAll {
@@ -513,4 +539,194 @@ func ValidateMutatingWebhookConfigurationUpdate(newC, oldC *admissionregistratio
 		requireRecognizedAdmissionReviewVersion: mutatingHasAcceptedAdmissionReviewVersions(oldC.Webhooks),
 		requireUniqueWebhookNames:               mutatingHasUniqueWebhookNames(oldC.Webhooks),
 	})
+}
+
+// ValidateValidatingAdmissionPolicy validates a ValidatingAdmissionPolicy before creation.
+func ValidateValidatingAdmissionPolicy(p *admissionregistration.ValidatingAdmissionPolicy) field.ErrorList {
+	return validateValidatingAdmissionPolicy(p)
+}
+
+func validateValidatingAdmissionPolicy(p *admissionregistration.ValidatingAdmissionPolicy) field.ErrorList {
+	allErrors := genericvalidation.ValidateObjectMeta(&p.ObjectMeta, false, genericvalidation.NameIsDNSSubdomain, field.NewPath("metadata"))
+	allErrors = append(allErrors, validateValidatingAdmissionPolicySpec(&p.Spec, field.NewPath("spec"))...)
+	return allErrors
+}
+
+func validateValidatingAdmissionPolicySpec(spec *admissionregistration.ValidatingAdmissionPolicySpec, fldPath *field.Path) field.ErrorList {
+	var allErrors field.ErrorList
+	if spec.FailurePolicy != nil && !supportedFailurePolicies.Has(string(*spec.FailurePolicy)) {
+		allErrors = append(allErrors, field.NotSupported(fldPath.Child("failurePolicy"), *spec.FailurePolicy, supportedFailurePolicies.List()))
+	}
+	if spec.ParamSource != nil {
+		allErrors = append(allErrors, validateParamSource(*spec.ParamSource, fldPath.Child("paramSource"))...)
+
+	}
+	if spec.MatchConstraints == nil {
+		allErrors = append(allErrors, field.Required(fldPath.Child("matchConstraints"), ""))
+	} else {
+		allErrors = append(allErrors, validateMatchResources(spec.MatchConstraints, fldPath.Child("matchConstraints"))...)
+	}
+	if len(spec.Validations) == 0 {
+		allErrors = append(allErrors, field.Required(fldPath.Child("validations"), ""))
+	} else {
+		for i, validation := range spec.Validations {
+			allErrors = append(allErrors, validateValidation(&validation, fldPath.Child("validations").Index(i))...)
+		}
+	}
+
+	return allErrors
+}
+
+func validateParamSource(gvk admissionregistration.ParamSource, fldPath *field.Path) field.ErrorList {
+	var allErrors field.ErrorList
+	if len(gvk.APIVersion) == 0 {
+		allErrors = append(allErrors, field.Invalid(fldPath.Child("apiVersion"), gvk.APIVersion, "must not be empty"))
+	} else if gv, err := parseGroupVersion(gvk.APIVersion); err != nil {
+		allErrors = append(allErrors, field.Invalid(fldPath.Child("apiVersion"), gvk.APIVersion, err.Error()))
+	} else {
+		if len(gv.Group) == 0 {
+			allErrors = append(allErrors, field.Invalid(fldPath.Child("apiVersion"), gvk.APIVersion, "group and version must be specified"))
+		} else if errs := utilvalidation.IsDNS1123Subdomain(gv.Group); len(errs) > 0 {
+			allErrors = append(allErrors, field.Invalid(fldPath.Child("apiGroup"), gv.Group, strings.Join(errs, ",")))
+		} else if len(strings.Split(gv.Group, ".")) < 2 {
+			allErrors = append(allErrors, field.Invalid(fldPath.Child("apiGroup"), gv.Group, "should be a domain with at least one dot"))
+		}
+		if len(gv.Version) == 0 {
+			allErrors = append(allErrors, field.Invalid(fldPath.Child("apiVersion"), gvk.APIVersion, "version must be specified"))
+		} else {
+			if errs := utilvalidation.IsDNS1035Label(gv.Version); len(errs) > 0 {
+				allErrors = append(allErrors, field.Invalid(fldPath.Child("apiVersion"), gv.Version, strings.Join(errs, ",")))
+			}
+		}
+	}
+	if len(gvk.Kind) == 0 {
+		allErrors = append(allErrors, field.Required(fldPath.Child("kind"), ""))
+	}
+	return allErrors
+}
+
+type groupVersion struct {
+	Group   string
+	Version string
+}
+
+// parseGroupVersion turns "group/version" string into a groupVersion struct. It reports error
+// if it cannot parse the string.
+func parseGroupVersion(gv string) (groupVersion, error) {
+	if (len(gv) == 0) || (gv == "/") {
+		return groupVersion{}, nil
+	}
+
+	switch strings.Count(gv, "/") {
+	case 0:
+		return groupVersion{"", gv}, nil
+	case 1:
+		i := strings.Index(gv, "/")
+		return groupVersion{gv[:i], gv[i+1:]}, nil
+	default:
+		return groupVersion{}, fmt.Errorf("unexpected GroupVersion string: %v", gv)
+	}
+}
+
+func validateMatchResources(mc *admissionregistration.MatchResources, fldPath *field.Path) field.ErrorList {
+	var allErrors field.ErrorList
+	if mc == nil {
+		return allErrors
+	}
+	if mc.MatchPolicy != nil && !supportedMatchPolicies.Has(string(*mc.MatchPolicy)) {
+		allErrors = append(allErrors, field.NotSupported(fldPath.Child("matchPolicy"), *mc.MatchPolicy, supportedMatchPolicies.List()))
+	}
+	if mc.NamespaceSelector != nil {
+		allErrors = append(allErrors, metav1validation.ValidateLabelSelector(mc.NamespaceSelector, fldPath.Child("namespaceSelector"))...)
+	}
+
+	if mc.ObjectSelector != nil {
+		allErrors = append(allErrors, metav1validation.ValidateLabelSelector(mc.ObjectSelector, fldPath.Child("labelSelector"))...)
+	}
+
+	for i, rule := range mc.ResourceRules {
+		allErrors = append(allErrors, validateRuleWithOperations(&rule, fldPath.Child("resourceRules").Index(i))...)
+	}
+
+	for i, rule := range mc.ExcludeResourceRules {
+		allErrors = append(allErrors, validateRuleWithOperations(&rule, fldPath.Child("excludeResourceRules").Index(i))...)
+	}
+
+	for i, objectName := range mc.ObjectName {
+		if errs := utilvalidation.IsDNS1123Subdomain(objectName); len(errs) > 0 {
+			allErrors = append(allErrors, field.Invalid(fldPath.Child("objectNames").Index(i), objectName, strings.Join(errs, ",")))
+		}
+	}
+
+	for i, objectName := range mc.ExcludeObjectName {
+		if errs := utilvalidation.IsDNS1123Subdomain(objectName); len(errs) > 0 {
+			allErrors = append(allErrors, field.Invalid(fldPath.Child("excludeObjectName").Index(i), objectName, strings.Join(errs, ",")))
+		}
+	}
+
+	return allErrors
+}
+
+func validateValidation(v *admissionregistration.Validation, fldPath *field.Path) field.ErrorList {
+	var allErrors field.ErrorList
+	trimmedExpression := strings.TrimSpace(v.Expression)
+	trimmedMsg := strings.TrimSpace(v.Message)
+	if len(trimmedExpression) == 0 {
+		allErrors = append(allErrors, field.Required(fldPath.Child("expression"), "expression is not specified"))
+	} else if len(v.Message) > 0 && len(trimmedMsg) == 0 {
+		allErrors = append(allErrors, field.Invalid(fldPath.Child("message"), v.Message, "message must be non-empty if specified"))
+	} else if hasNewlines(trimmedMsg) {
+		allErrors = append(allErrors, field.Invalid(fldPath.Child("message"), v.Message, "message must not contain line breaks"))
+	} else if hasNewlines(trimmedMsg) && trimmedMsg == "" {
+		allErrors = append(allErrors, field.Required(fldPath.Child("message"), "message must be specified if expression contains line breaks"))
+	}
+	if v.Reason != nil && !supportedValidationReson.Has(string(*v.Reason)) {
+		allErrors = append(allErrors, field.NotSupported(fldPath.Child("reason"), *v.Reason, supportedValidationReson.List()))
+	}
+	return allErrors
+}
+
+var newlineMatcher = regexp.MustCompile(`[\n\r]+`) // valid newline chars in CEL grammar
+func hasNewlines(s string) bool {
+	return newlineMatcher.MatchString(s)
+}
+
+// ValidateValidatingAdmissionPolicyBinding validates a ValidatingAdmissionPolicyBinding before create.
+func ValidateValidatingAdmissionPolicyBinding(pb *admissionregistration.ValidatingAdmissionPolicyBinding) field.ErrorList {
+	return validateValidatingAdmissionPolicyBinding(pb)
+}
+
+func validateValidatingAdmissionPolicyBinding(pb *admissionregistration.ValidatingAdmissionPolicyBinding) field.ErrorList {
+	allErrors := genericvalidation.ValidateObjectMeta(&pb.ObjectMeta, false, genericvalidation.NameIsDNSSubdomain, field.NewPath("metadata"))
+	allErrors = append(allErrors, validateValidatingAdmissionPolicyBindingSpec(&pb.Spec, field.NewPath("spec"))...)
+
+	return allErrors
+}
+
+func validateValidatingAdmissionPolicyBindingSpec(spec *admissionregistration.ValidatingAdmissionPolicyBindingSpec, fldPath *field.Path) field.ErrorList {
+	var allErrors field.ErrorList
+
+	if len(spec.PolicyName) == 0 {
+		allErrors = append(allErrors, field.Required(fldPath.Child("policyName"), ""))
+	} else {
+		for _, msg := range genericvalidation.NameIsDNSSubdomain(spec.PolicyName, false) {
+			allErrors = append(allErrors, field.Invalid(fldPath.Child("policyName"), spec.PolicyName, msg))
+		}
+	}
+	for _, msg := range genericvalidation.NameIsDNSSubdomain(spec.ParamName, false) {
+		allErrors = append(allErrors, field.Invalid(fldPath.Child("paramName"), spec.ParamName, msg))
+	}
+	allErrors = append(allErrors, validateMatchResources(spec.MatchResources, fldPath.Child("matchResouces"))...)
+
+	return allErrors
+}
+
+// ValidateValidatingAdmissionPolicyUpdate validates update of validating admission policy
+func ValidateValidatingAdmissionPolicyUpdate(newC, oldC *admissionregistration.ValidatingAdmissionPolicy) field.ErrorList {
+	return validateValidatingAdmissionPolicy(newC)
+}
+
+// ValidateValidatingAdmissionPolicyBindingUpdate validates update of validating admission policy
+func ValidateValidatingAdmissionPolicyBindingUpdate(newC, oldC *admissionregistration.ValidatingAdmissionPolicyBinding) field.ErrorList {
+	return validateValidatingAdmissionPolicyBinding(newC)
 }

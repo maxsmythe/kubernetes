@@ -63,5 +63,15 @@ var Funcs = func(codecs runtimeserializer.CodecFactory) []interface{} {
 			}
 			obj.AdmissionReviewVersions = []string{"v1beta1"}
 		},
+		func(obj *admissionregistration.ValidatingAdmissionPolicySpec, c fuzz.Continue) {
+			c.FuzzNoCustom(obj) // fuzz self without calling this function again
+			p := admissionregistration.FailurePolicyType("Fail")
+			obj.FailurePolicy = &p
+		},
+		func(obj *admissionregistration.MatchResources, c fuzz.Continue) {
+			c.FuzzNoCustom(obj) // fuzz self without calling this function again
+			m := admissionregistration.MatchPolicyType("Exact")
+			obj.MatchPolicy = &m
+		},
 	}
 }

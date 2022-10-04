@@ -115,6 +115,234 @@ const (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// ValidatingAdmissionPolicy describes the definition of an admission validation policy that accepts or rejects an object without changing it.
+type ValidatingAdmissionPolicy struct {
+	metav1.TypeMeta
+	// Standard object metadata; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
+	// +optional
+	metav1.ObjectMeta
+	// Specification of the desired behavior of the ValidatingAdmissionPolicy.
+	Spec ValidatingAdmissionPolicySpec
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ValidatingAdmissionPolicyList is a list of ValidatingAdmissionPolicy.
+type ValidatingAdmissionPolicyList struct {
+	metav1.TypeMeta
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	metav1.ListMeta
+	// List of ValidatingAdmissionPolicy.
+	Items []ValidatingAdmissionPolicy
+}
+
+// ValidatingAdmissionPolicySpec is the specification of the desired behavior of the AdmissionPolicy.
+type ValidatingAdmissionPolicySpec struct {
+	// ParamSource specifies the kind of resources used to parameterize this policy which has to be a CRD.
+	// If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
+	// If ParamSource refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.
+	// +optional
+	ParamSource *ParamSource
+
+	// MatchConstraints specifies what resources this policy is designed to validate.
+	// The AdmissionPolicy cares about a validation if it matches _any_ Constriant.
+	// However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
+	// ValidatingAdmissionPolicy cannot match ValidatingWebhookConfiguration, MutatingWebhookConfiguration, ValidatingAdmissionPolicy, ValidatingAdmissionPolicyBinding, or policy param resources.
+	// Required.
+	MatchConstraints *MatchResources
+
+	// Validations contain CEL expressions which is used to apply the validation.
+	// A minimum of one validation is required for a policy definition.
+	// Required.
+	Validations []Validation
+
+	// FailurePolicy defines how to handle failures for the admission policy.
+	// Failures can occur from invalid policy definitions or bindings, as well as validation errors from CEL expressions.
+	// A policy is invalid if spec.paramSource refers to a non-existent Kind.
+	// A binding is invalid if spec.paramName refers to a non-existent custom resource.
+	// allowed values are Ignore or Fail. Defaults to Fail.
+	// +optional
+	FailurePolicy *FailurePolicyType
+}
+
+// ParamSource is a tuple of Group Kind and Version.
+type ParamSource struct {
+	// APIVersion is the API group version the resources belong to.
+	// In format of "group/version".
+	// Required.
+	APIVersion string
+
+	// Kind is the API kind the resources belong to.
+	// Required.
+	Kind string
+}
+
+// Validation specifies the CEL expression which is used to apply the validation.
+type Validation struct {
+	// Expression represents the expression which will be evaluated by CEL.
+	// ref: https://github.com/google/cel-spec
+	// CEL expressions have access to the contents of the Admission request/response, organized into CEL variables as well as some other useful variables:
+	//
+	//'object' - the object being validated
+	//'oldObject' - the existing object identified by AdmissionReview
+	//'request' - the context of admission request matches AdmissionRequest (except object, oldObject)
+	// Reference: /pkg/apis/admission/types.go#AdmissionRequest
+	//'params' - configuration data of the policy configuration being validated
+	// The `object` variable in the expression is bound to the resource this policy is designed to validate.
+	//
+	// The `apiVersion`, `kind`, `metadata.name` and `metadata.generateName` are always accessible from the root of the
+	// object. No other metadata properties are accessible.
+	//
+	// Only property names of the form `[a-zA-Z_.-/][a-zA-Z0-9_.-/]*` are accessible.
+	// Accessible property names are escaped according to the following rules when accessed in the expression:
+	// - '__' escapes to '__underscores__'
+	// - '.' escapes to '__dot__'
+	// - '-' escapes to '__dash__'
+	// - '/' escapes to '__slash__'
+	// - Property names that exactly match a CEL RESERVED keyword escape to '__{keyword}__'. The keywords are:
+	//	  "true", "false", "null", "in", "as", "break", "const", "continue", "else", "for", "function", "if",
+	//	  "import", "let", "loop", "package", "namespace", "return".
+	// Examples:
+	//   - Expression accessing a property named "namespace": {"Expression": "object.__namespace__ > 0"}
+	//   - Expression accessing a property named "x-prop": {"Expression": "object.x__dash__prop > 0"}
+	//   - Expression accessing a property named "redact__d": {"Expression": "object.redact__underscores__d > 0"}
+	//
+	// Equality on arrays with list type of 'set' or 'map' ignores element order, i.e. [1, 2] == [2, 1].
+	// Concatenation on arrays with x-kubernetes-list-type use the semantics of the list type:
+	//   - 'set': `X + Y` performs a union where the array positions of all elements in `X` are preserved and
+	//     non-intersecting elements in `Y` are appended, retaining their partial order.
+	//   - 'map': `X + Y` performs a merge where the array positions of all keys in `X` are preserved but the values
+	//     are overwritten by values in `Y` when the key sets of `X` and `Y` intersect. Elements in `Y` with
+	//     non-intersecting keys are appended, retaining their partial order.
+	// Required.
+	Expression string
+	// Message represents the message displayed when validation fails. The message is required if the Expression contains
+	// line breaks. The message must not contain line breaks.
+	// If unset, the message is "failed rule: {Rule}".
+	// e.g. "must be a URL with the host matching spec.host"
+	// If ExpressMessage is specified, Message will be ignored
+	// If the Expression contains line breaks. Eith Message or ExpressMessage is required.
+	// The message must not contain line breaks.
+	// If unset, the message is "failed Expression: {Expression}".
+	// +optional
+	Message string
+	// Reason represents a machine-readable description of why this validation failed.
+	// If this is the first validation in the list to fail, this reason, as well as the
+	// corresponding HTTP response code, are used in the
+	// HTTP response to the client.
+	// If not set, StatusReasonInvalid is used in the response to the client.
+	// +optional
+	Reason *metav1.StatusReason
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ValidatingAdmissionPolicyBinding binds the ValidatingAdmissionPolicy with paramerized resources.
+// ValidatingAdmissionPolicyBinding and parameter CRDs together define how cluster administrators configure policies for clusters.
+type ValidatingAdmissionPolicyBinding struct {
+	metav1.TypeMeta
+	// Standard object metadata; More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata.
+	// +optional
+	metav1.ObjectMeta
+	// Specification of the desired behavior of the ValidatingAdmissionPolicyBinding.
+	Spec ValidatingAdmissionPolicyBindingSpec
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ValidatingAdmissionPolicyBindingList is a list of PolicyBinding.
+type ValidatingAdmissionPolicyBindingList struct {
+	metav1.TypeMeta
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	metav1.ListMeta
+	// List of PolicyBinding.
+	Items []ValidatingAdmissionPolicyBinding
+}
+
+// ValidatingAdmissionPolicyBindingSpec is the specification of the ValidatingAdmissionPolicyBinding.
+type ValidatingAdmissionPolicyBindingSpec struct {
+	// PolicyName references a ValidatingAdmissionPolicy name which the policyBinding binds to.
+	// if the resource referred to by PolicyName does not exist, this binding is considered mis-configured and will be ignored
+	// Required.
+	PolicyName string
+
+	// ParamName specifies the parameter resource used to configure the admission control policy.
+	// It should point to a Custom Resource which is created out of the CRD specified in ParamSource of ValidatingAdmissionPolicy it binded.
+	// If the resource referred to by ParamName does not exist, this binding is considered mis-configured and the FailurePolicy of the policy definition applied.
+	// +optional
+	ParamName string
+
+	// MatchResources declares what resources match this binding and will be validated by it.
+	// +optional
+	MatchResources *MatchResources
+}
+
+// MatchResources decides whether to run the admission control policy on an object based
+// on whether it meets the match criteria.
+// The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
+type MatchResources struct {
+	// NamespaceSelector decides whether to run the admission control policy on an object based
+	// on whether the namespace for that object matches the selector. If the
+	// object itself is a namespace, the matching is performed on
+	// object.metadata.labels. If the object is another cluster scoped resource,
+	// it never skips the admission control policy.
+	//
+	// See
+	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels
+	// for examples of label selectors.
+	//
+	// Default to the empty LabelSelector, which matches everything.
+	// +optional
+	NamespaceSelector *metav1.LabelSelector
+	// ObjectSelector decides whether to run the validation based on if the
+	// object has matching labels. objectSelector is evaluated against both
+	// the oldObject and newObject that would be sent to the cel validation, and
+	// is considered to match if either object matches the selector. A null
+	// object (oldObject in the case of create, or newObject in the case of
+	// delete) or an object that cannot have labels (like a
+	// DeploymentRollback or a PodProxyOptions object) is not considered to
+	// match.
+	// Use the object selector only if the webhook is opt-in, because end
+	// users may skip the admission webhook by setting the labels.
+	// Default to the empty LabelSelector, which matches everything.
+	// +optional
+	ObjectSelector *metav1.LabelSelector
+	// ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+	// +optional
+	ResourceRules []RuleWithOperations
+	// ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+	// +optional
+	ExcludeResourceRules []RuleWithOperations
+	// ObjectName specifies the object name which the admission control policy should validate on.
+	// +optional
+	ObjectName []string
+	// ExcludeObjectName specifies the object name which the admission control policy should not validate on.
+	// +optional
+	ExcludeObjectName []string
+	// matchPolicy defines how the "MatchResources" list is used to match incoming requests.
+	// Allowed values are "Exact" or "Equivalent".
+	//
+	// - Exact: match a request only if it exactly matches a specified rule.
+	// For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
+	// but "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
+	// a request to apps/v1beta1 or extensions/v1beta1 would not be sent to the ValidatingAdmissionPolicy.
+	//
+	// - Equivalent: match a request if modifies a resource listed in rules, even via another API group or version.
+	// For example, if deployments can be modified via apps/v1, apps/v1beta1, and extensions/v1beta1,
+	// and "rules" only included `apiGroups:["apps"], apiVersions:["v1"], resources: ["deployments"]`,
+	// a request to apps/v1beta1 or extensions/v1beta1 would be converted to apps/v1 and sent to the ValidatingAdmissionPolicy.
+	//
+	// Defaults to "Equivalent"
+	// +optional
+	MatchPolicy *MatchPolicyType
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 // ValidatingWebhookConfiguration describes the configuration of an admission webhook that accepts or rejects and object without changing it.
 type ValidatingWebhookConfiguration struct {
 	metav1.TypeMeta
