@@ -1574,7 +1574,11 @@ func printValidatingAdmissionPolicyBinding(obj *admissionregistration.Validating
 	row := metav1.TableRow{
 		Object: runtime.RawExtension{Object: obj},
 	}
-	row.Cells = append(row.Cells, obj.Name, obj.Spec.PolicyName, obj.Spec.ParamName, translateTimestampSince(obj.CreationTimestamp))
+	paramName := "<unset>"
+	if obj.Spec.ParamRef != nil {
+		paramName = obj.Spec.ParamRef.Name
+	}
+	row.Cells = append(row.Cells, obj.Name, obj.Spec.PolicyName, paramName, translateTimestampSince(obj.CreationTimestamp))
 	return []metav1.TableRow{row}, nil
 }
 

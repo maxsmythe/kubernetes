@@ -122,15 +122,29 @@ func validPolicyBinding() *admissionregistration.ValidatingAdmissionPolicyBindin
 		},
 		Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 			PolicyName: "replicalimit-policy.example.com",
-			ParamName:  "param-test",
+			ParamRef: &admissionregistration.ParamRef{
+				Name: "param-test",
+			},
 			MatchResources: &admissionregistration.MatchResources{
-				ResourceRules: []admissionregistration.RuleWithOperations{
+				MatchPolicy: func() *admissionregistration.MatchPolicyType {
+					r := admissionregistration.MatchPolicyType("Exact")
+					return &r
+				}(),
+				ObjectSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				ResourceRules: []admissionregistration.NamedRuleWithOperations{
 					{
-						Operations: []admissionregistration.OperationType{"CREATE"},
-						Rule: admissionregistration.Rule{
-							APIGroups:   []string{"a"},
-							APIVersions: []string{"a"},
-							Resources:   []string{"a"},
+						RuleWithOperations: admissionregistration.RuleWithOperations{
+							Operations: []admissionregistration.OperationType{"CREATE"},
+							Rule: admissionregistration.Rule{
+								APIGroups:   []string{"a"},
+								APIVersions: []string{"a"},
+								Resources:   []string{"a"},
+							},
 						},
 					},
 				},
@@ -146,20 +160,22 @@ func newPolicyBinding(name string) *admissionregistration.ValidatingAdmissionPol
 			Labels: map[string]string{"foo": "bar"},
 		},
 		Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
-			PolicyName:     "replicalimit-policy.example.com",
-			ParamName:      "param-test",
+			PolicyName: "replicalimit-policy.example.com",
+			ParamRef: &admissionregistration.ParamRef{
+				Name: "param-test",
+			},
 			MatchResources: &admissionregistration.MatchResources{},
 		},
 	}
 }
 
 func newStorage(t *testing.T) (*REST, *etcd3testing.EtcdTestServer) {
-	etcdStorage, server := registrytest.NewEtcdStorageForResource(t, admissionregistration.Resource("validatingadmissionpolicybinding"))
+	etcdStorage, server := registrytest.NewEtcdStorageForResource(t, admissionregistration.Resource("validatingadmissionpolicybindings"))
 	restOptions := generic.RESTOptions{
 		StorageConfig:           etcdStorage,
 		Decorator:               generic.UndecoratedStorage,
 		DeleteCollectionWorkers: 1,
-		ResourcePrefix:          "validatingadmissionpolicybinding"}
+		ResourcePrefix:          "validatingadmissionpolicybindings"}
 	storage, err := NewREST(restOptions)
 	if err != nil {
 		t.Fatalf("unexpected error from REST storage: %v", err)

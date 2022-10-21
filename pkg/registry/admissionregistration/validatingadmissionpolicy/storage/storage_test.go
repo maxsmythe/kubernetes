@@ -121,7 +121,11 @@ func validValidatingAdmissionPolicy() *admissionregistration.ValidatingAdmission
 			Name: "foo",
 		},
 		Spec: admissionregistration.ValidatingAdmissionPolicySpec{
-			ParamSource: &admissionregistration.ParamSource{
+			FailurePolicy: func() *admissionregistration.FailurePolicyType {
+				r := admissionregistration.FailurePolicyType("Fail")
+				return &r
+			}(),
+			ParamKind: &admissionregistration.ParamKind{
 				APIVersion: "rules.example.com/v1",
 				Kind:       "ReplicaLimit",
 			},
@@ -131,15 +135,27 @@ func validValidatingAdmissionPolicy() *admissionregistration.ValidatingAdmission
 				},
 			},
 			MatchConstraints: &admissionregistration.MatchResources{
-				ResourceRules: []admissionregistration.RuleWithOperations{
+				MatchPolicy: func() *admissionregistration.MatchPolicyType {
+					r := admissionregistration.MatchPolicyType("Exact")
+					return &r
+				}(),
+				ResourceRules: []admissionregistration.NamedRuleWithOperations{
 					{
-						Operations: []admissionregistration.OperationType{"CREATE"},
-						Rule: admissionregistration.Rule{
-							APIGroups:   []string{"a"},
-							APIVersions: []string{"a"},
-							Resources:   []string{"a"},
+						RuleWithOperations: admissionregistration.RuleWithOperations{
+							Operations: []admissionregistration.OperationType{"CREATE"},
+							Rule: admissionregistration.Rule{
+								APIGroups:   []string{"a"},
+								APIVersions: []string{"a"},
+								Resources:   []string{"a"},
+							},
 						},
 					},
+				},
+				ObjectSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
 				},
 			},
 		},
@@ -154,7 +170,7 @@ func newValidatingAdmissionPolicy(name string) *admissionregistration.Validating
 			Labels: map[string]string{"foo": "bar"},
 		},
 		Spec: admissionregistration.ValidatingAdmissionPolicySpec{
-			ParamSource: &admissionregistration.ParamSource{
+			ParamKind: &admissionregistration.ParamKind{
 				APIVersion: "rules.example.com/v1",
 				Kind:       "ReplicaLimit",
 			},
@@ -164,13 +180,15 @@ func newValidatingAdmissionPolicy(name string) *admissionregistration.Validating
 				},
 			},
 			MatchConstraints: &admissionregistration.MatchResources{
-				ResourceRules: []admissionregistration.RuleWithOperations{
+				ResourceRules: []admissionregistration.NamedRuleWithOperations{
 					{
-						Operations: []admissionregistration.OperationType{"CREATE"},
-						Rule: admissionregistration.Rule{
-							APIGroups:   []string{"a"},
-							APIVersions: []string{"a"},
-							Resources:   []string{"a"},
+						RuleWithOperations: admissionregistration.RuleWithOperations{
+							Operations: []admissionregistration.OperationType{"CREATE"},
+							Rule: admissionregistration.Rule{
+								APIGroups:   []string{"a"},
+								APIVersions: []string{"a"},
+								Resources:   []string{"a"},
+							},
 						},
 					},
 				},
@@ -181,12 +199,12 @@ func newValidatingAdmissionPolicy(name string) *admissionregistration.Validating
 }
 
 func newStorage(t *testing.T) (*REST, *etcd3testing.EtcdTestServer) {
-	etcdStorage, server := registrytest.NewEtcdStorageForResource(t, admissionregistration.Resource("validatingadmissionpolicy"))
+	etcdStorage, server := registrytest.NewEtcdStorageForResource(t, admissionregistration.Resource("validatingadmissionpolicies"))
 	restOptions := generic.RESTOptions{
 		StorageConfig:           etcdStorage,
 		Decorator:               generic.UndecoratedStorage,
 		DeleteCollectionWorkers: 1,
-		ResourcePrefix:          "validatingadmissionpolicy"}
+		ResourcePrefix:          "validatingadmissionpolicies"}
 	storage, err := NewREST(restOptions)
 	if err != nil {
 		t.Fatalf("unexpected error from REST storage: %v", err)

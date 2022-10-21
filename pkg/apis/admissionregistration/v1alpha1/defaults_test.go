@@ -32,7 +32,6 @@ import (
 func TestDefaultAdmissionPolicy(t *testing.T) {
 	fail := v1alpha1.Fail
 	equivalent := v1alpha1.Equivalent
-	//ten := int32(10)
 	allScopes := v1alpha1.AllScopes
 
 	tests := []struct {
@@ -59,7 +58,7 @@ func TestDefaultAdmissionPolicy(t *testing.T) {
 			},
 		},
 		{
-			name: "PolicyBinding",
+			name: "ValidatingAdmissionPolicyBinding",
 			original: &v1alpha1.ValidatingAdmissionPolicyBinding{
 				Spec: v1alpha1.ValidatingAdmissionPolicyBindingSpec{
 					MatchResources: &v1alpha1.MatchResources{},
@@ -80,7 +79,7 @@ func TestDefaultAdmissionPolicy(t *testing.T) {
 			original: &v1alpha1.ValidatingAdmissionPolicy{
 				Spec: v1alpha1.ValidatingAdmissionPolicySpec{
 					MatchConstraints: &v1alpha1.MatchResources{
-						ResourceRules: []v1alpha1.RuleWithOperations{{}},
+						ResourceRules: []v1alpha1.NamedRuleWithOperations{{}},
 					},
 				},
 			},
@@ -90,10 +89,12 @@ func TestDefaultAdmissionPolicy(t *testing.T) {
 						MatchPolicy:       &equivalent,
 						NamespaceSelector: &metav1.LabelSelector{},
 						ObjectSelector:    &metav1.LabelSelector{},
-						ResourceRules: []v1alpha1.RuleWithOperations{
+						ResourceRules: []v1alpha1.NamedRuleWithOperations{
 							{
-								Rule: v1alpha1.Rule{
-									Scope: &allScopes, // defaulted
+								RuleWithOperations: v1alpha1.RuleWithOperations{
+									Rule: v1alpha1.Rule{
+										Scope: &allScopes, // defaulted
+									},
 								},
 							},
 						},

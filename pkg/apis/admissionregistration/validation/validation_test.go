@@ -1889,7 +1889,7 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 					}(),
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 				},
@@ -1920,36 +1920,16 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
-					ParamSource: &admissionregistration.ParamSource{
+					ParamKind: &admissionregistration.ParamKind{
 						Kind:       "Example",
 						APIVersion: "test.example.com",
 					},
 				},
 			},
-			expectedError: `spec.paramSource.apiVersion: Invalid value: "test.example.com": group and version must be specified`,
-		},
-		{
-			name: "API group is required in ParamSource",
-			config: &admissionregistration.ValidatingAdmissionPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "config",
-				},
-				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
-					Validations: []admissionregistration.Validation{
-						{
-							Expression: "fake expression",
-						},
-					},
-					ParamSource: &admissionregistration.ParamSource{
-						APIVersion: "v1",
-						Kind:       "Example",
-					},
-				},
-			},
-			expectedError: `spec.paramSource.apiVersion: Invalid value: "v1": group and version must be specified`,
+			expectedError: `spec.paramKind.apiVersion: Invalid value: "test.example.com"`,
 		},
 		{
 			name: "API kind is required in ParamSource",
@@ -1960,15 +1940,15 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
-					ParamSource: &admissionregistration.ParamSource{
+					ParamKind: &admissionregistration.ParamKind{
 						APIVersion: "test.example.com/v1",
 					},
 				},
 			},
-			expectedError: `spec.paramSource.kind: Required value`,
+			expectedError: `spec.paramKind.kind: Required value`,
 		},
 		{
 			name: "API version format in ParamSource",
@@ -1979,16 +1959,16 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
-					ParamSource: &admissionregistration.ParamSource{
+					ParamKind: &admissionregistration.ParamKind{
 						Kind:       "Example",
 						APIVersion: "test.example.com/!!!",
 					},
 				},
 			},
-			expectedError: `pec.paramSource.apiVersion: Invalid value: "!!!":`,
+			expectedError: `pec.paramKind.apiVersion: Invalid value: "!!!":`,
 		},
 		{
 			name: "API group format in ParamSource",
@@ -1999,16 +1979,16 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
-					ParamSource: &admissionregistration.ParamSource{
+					ParamKind: &admissionregistration.ParamKind{
 						APIVersion: "!!!/v1",
 						Kind:       "ReplicaLimit",
 					},
 				},
 			},
-			expectedError: `pec.paramSource.apiGroup: Invalid value: "!!!":`,
+			expectedError: `pec.paramKind.apiVersion: Invalid value: "!!!":`,
 		},
 		{
 			name: "Validations is required",
@@ -2030,7 +2010,7 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 							Reason: func() *metav1.StatusReason {
 								r := metav1.StatusReason("other")
 								return &r
@@ -2051,7 +2031,7 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 				},
@@ -2073,7 +2053,7 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 			expectedError: `spec.validations[0].expression: Required value: expression is not specified`,
 		},
 		{
-			name: "matchResources objectName check",
+			name: "matchResources resourceNames check",
 			config: &admissionregistration.ValidatingAdmissionPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "config",
@@ -2081,18 +2061,22 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ObjectName: []string{"!!!"},
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
+							{
+								ResourceNames: []string{"/./."},
+							},
+						},
 					},
 				},
 			},
-			expectedError: `spec.matchConstraints.objectNames[0]: Invalid value: "!!!"`,
+			expectedError: `spec.matchConstraints.resourceRules[0].resourceNames: Invalid value: "/./."`,
 		},
 		{
-			name: "matchResources excludeObjectName check",
+			name: "matchResources resourceNames cannot duplicate",
 			config: &admissionregistration.ValidatingAdmissionPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "config",
@@ -2100,15 +2084,19 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ExcludeObjectName: []string{"!!!"},
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
+							{
+								ResourceNames: []string{"test", "test"},
+							},
+						},
 					},
 				},
 			},
-			expectedError: `spec.matchConstraints.excludeObjectName[0]: Invalid value: "!!!"`,
+			expectedError: `spec.matchConstraints.resourceRules[0].resourceNames[1]: Duplicate value: "test"`,
 		},
 		{
 			name: "matchResources validation: matchPolicy",
@@ -2119,7 +2107,7 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
@@ -2141,50 +2129,72 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
+					FailurePolicy: func() *admissionregistration.FailurePolicyType {
+						r := admissionregistration.FailurePolicyType("Fail")
+						return &r
+					}(),
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 							{
-								Operations: nil,
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: nil,
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
-						ExcludeResourceRules: []admissionregistration.RuleWithOperations{
+						ExcludeResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 							{
-								Operations: nil,
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: nil,
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedError: `spec.matchConstraints.resourceRules[0].operations: Required value, spec.matchConstraints.resourceRules[1].operations: Required value, spec.matchConstraints.excludeResourceRules[0].operations: Required value, spec.matchConstraints.excludeResourceRules[1].operations: Required value`,
+			expectedError: `spec.matchConstraints.resourceRules[0].ruleWithOperations.operations: Required value, spec.matchConstraints.resourceRules[1].ruleWithOperations.operations: Required value, spec.matchConstraints.excludeResourceRules[0].ruleWithOperations.operations: Required value, spec.matchConstraints.excludeResourceRules[1].ruleWithOperations.operations: Required value`,
 		},
 		{
 			name: "\"\" is NOT a valid operation",
@@ -2195,17 +2205,19 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE", ""},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE", ""},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2223,17 +2235,19 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"PATCH"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"PATCH"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2251,17 +2265,19 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE", "*"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE", "*"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2277,21 +2293,37 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 					Name: "config",
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
+					FailurePolicy: func() *admissionregistration.FailurePolicyType {
+						r := admissionregistration.FailurePolicyType("Fail")
+						return &r
+					}(),
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"*", "a/b", "a/*", "*/b"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*", "a/b", "a/*", "*/b"},
+									},
 								},
 							},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
 						},
 					},
 				},
@@ -2306,17 +2338,19 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"*", "a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*", "a"},
+									},
 								},
 							},
 						},
@@ -2334,24 +2368,26 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a/*", "a/x"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a/*", "a/x"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedError: `spec.matchConstraints.resourceRules[0].resources[1]: Invalid value: "a/x": if 'a/*' is present, must not specify a/x`,
+			expectedError: `spec.matchConstraints.resourceRules[0].ruleWithOperations.resources[1]: Invalid value: "a/x": if 'a/*' is present, must not specify a/x`,
 		},
 		{
 			name: "resource a/* can mix with a",
@@ -2360,19 +2396,35 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 					Name: "config",
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
+					FailurePolicy: func() *admissionregistration.FailurePolicyType {
+						r := admissionregistration.FailurePolicyType("Fail")
+						return &r
+					}(),
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a/*", "a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a/*", "a"},
+									},
 								},
 							},
 						},
@@ -2389,24 +2441,26 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"*/a", "x/a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*/a", "x/a"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedError: `spec.matchConstraints.resourceRules[0].resources[1]: Invalid value: "x/a": if '*/a' is present, must not specify x/a`,
+			expectedError: `spec.matchConstraints.resourceRules[0].ruleWithOperations.resources[1]: Invalid value: "x/a": if '*/a' is present, must not specify x/a`,
 		},
 		{
 			name: "resource */* cannot mix with other resources",
@@ -2417,24 +2471,56 @@ func TestValidateValidatingAdmissionPolicy(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"*/*", "a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*/*", "a"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedError: `spec.matchConstraints.resourceRules[0].resources: Invalid value: []string{"*/*", "a"}: if '*/*' is present, must not specify other resources`,
+			expectedError: `spec.matchConstraints.resourceRules[0].ruleWithOperations.resources: Invalid value: []string{"*/*", "a"}: if '*/*' is present, must not specify other resources`,
+		},
+		{
+			name: "invalid expression",
+			config: &admissionregistration.ValidatingAdmissionPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "config",
+				},
+				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
+					Validations: []admissionregistration.Validation{
+						{
+							Expression: "object.x in [1, 2, ",
+						},
+					},
+					MatchConstraints: &admissionregistration.MatchResources{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
+							{
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*/*"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: `spec.validations[0].expression: Invalid value: "object.x in [1, 2, ": compilation failed: ERROR: <input>:1:19: Syntax error: missing ']' at '<EOF>`,
 		},
 	}
 	for _, test := range tests {
@@ -2469,19 +2555,35 @@ func TestValidateValidatingAdmissionPolicyUpdate(t *testing.T) {
 					Name: "config",
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
+					FailurePolicy: func() *admissionregistration.FailurePolicyType {
+						r := admissionregistration.FailurePolicyType("Fail")
+						return &r
+					}(),
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2495,17 +2597,19 @@ func TestValidateValidatingAdmissionPolicyUpdate(t *testing.T) {
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2520,19 +2624,35 @@ func TestValidateValidatingAdmissionPolicyUpdate(t *testing.T) {
 					Name: "config",
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicySpec{
+					FailurePolicy: func() *admissionregistration.FailurePolicyType {
+						r := admissionregistration.FailurePolicyType("Fail")
+						return &r
+					}(),
 					Validations: []admissionregistration.Validation{
 						{
-							Expression: "fake expression",
+							Expression: "object.x < 100",
 						},
 					},
 					MatchConstraints: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2598,7 +2718,9 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
 						MatchPolicy: func() *admissionregistration.MatchPolicyType {
 							r := admissionregistration.MatchPolicyType("other")
@@ -2617,48 +2739,58 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 							{
-								Operations: nil,
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: nil,
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
-						ExcludeResourceRules: []admissionregistration.RuleWithOperations{
+						ExcludeResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 							{
-								Operations: nil,
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: nil,
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedError: `spec.matchResouces.resourceRules[0].operations: Required value, spec.matchResouces.resourceRules[1].operations: Required value, spec.matchResouces.excludeResourceRules[0].operations: Required value, spec.matchResouces.excludeResourceRules[1].operations: Required value`,
+			expectedError: `spec.matchResouces.resourceRules[0].ruleWithOperations.operations: Required value, spec.matchResouces.resourceRules[1].ruleWithOperations.operations: Required value, spec.matchResouces.excludeResourceRules[0].ruleWithOperations.operations: Required value, spec.matchResouces.excludeResourceRules[1].ruleWithOperations.operations: Required value`,
 		},
 		{
 			name: "\"\" is NOT a valid operation",
@@ -2668,15 +2800,18 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
-					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					}, MatchResources: &admissionregistration.MatchResources{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE", ""},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE", ""},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2693,15 +2828,18 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
-					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					}, MatchResources: &admissionregistration.MatchResources{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"PATCH"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"PATCH"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2718,15 +2856,19 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE", "*"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE", "*"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2743,15 +2885,29 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"*", "a/b", "a/*", "*/b"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*", "a/b", "a/*", "*/b"},
+									},
 								},
 							},
 						},
@@ -2767,15 +2923,19 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"*", "a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*", "a"},
+									},
 								},
 							},
 						},
@@ -2792,22 +2952,26 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a/*", "a/x"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a/*", "a/x"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedError: `spec.matchResouces.resourceRules[0].resources[1]: Invalid value: "a/x": if 'a/*' is present, must not specify a/x`,
+			expectedError: `spec.matchResouces.resourceRules[0].ruleWithOperations.resources[1]: Invalid value: "a/x": if 'a/*' is present, must not specify a/x`,
 		},
 		{
 			name: "resource a/* can mix with a",
@@ -2817,15 +2981,29 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a/*", "a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a/*", "a"},
+									},
 								},
 							},
 						},
@@ -2841,22 +3019,26 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"*/a", "x/a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*/a", "x/a"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedError: `spec.matchResouces.resourceRules[0].resources[1]: Invalid value: "x/a": if '*/a' is present, must not specify x/a`,
+			expectedError: `spec.matchResouces.resourceRules[0].ruleWithOperations.resources[1]: Invalid value: "x/a": if '*/a' is present, must not specify x/a`,
 		},
 		{
 			name: "resource */* cannot mix with other resources",
@@ -2866,22 +3048,26 @@ func TestValidateValidatingAdmissionPolicyBinding(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"*/*", "a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"*/*", "a"},
+									},
 								},
 							},
 						},
 					},
 				},
 			},
-			expectedError: `spec.matchResouces.resourceRules[0].resources: Invalid value: []string{"*/*", "a"}: if '*/*' is present, must not specify other resources`,
+			expectedError: `spec.matchResouces.resourceRules[0].ruleWithOperations.resources: Invalid value: []string{"*/*", "a"}: if '*/*' is present, must not specify other resources`,
 		},
 	}
 	for _, test := range tests {
@@ -2917,15 +3103,29 @@ func TestValidateValidatingAdmissionPolicyBindingUpdate(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2938,15 +3138,29 @@ func TestValidateValidatingAdmissionPolicyBindingUpdate(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},
@@ -2962,15 +3176,29 @@ func TestValidateValidatingAdmissionPolicyBindingUpdate(t *testing.T) {
 				},
 				Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 					PolicyName: "xyzlimit-scale.example.com",
-					ParamName:  "xyzlimit-scale-setting.example.com",
+					ParamRef: &admissionregistration.ParamRef{
+						Name: "xyzlimit-scale-setting.example.com",
+					},
 					MatchResources: &admissionregistration.MatchResources{
-						ResourceRules: []admissionregistration.RuleWithOperations{
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						ObjectSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"a": "b"},
+						},
+						MatchPolicy: func() *admissionregistration.MatchPolicyType {
+							r := admissionregistration.MatchPolicyType("Exact")
+							return &r
+						}(),
+						ResourceRules: []admissionregistration.NamedRuleWithOperations{
 							{
-								Operations: []admissionregistration.OperationType{"CREATE"},
-								Rule: admissionregistration.Rule{
-									APIGroups:   []string{"a"},
-									APIVersions: []string{"a"},
-									Resources:   []string{"a"},
+								RuleWithOperations: admissionregistration.RuleWithOperations{
+									Operations: []admissionregistration.OperationType{"CREATE"},
+									Rule: admissionregistration.Rule{
+										APIGroups:   []string{"a"},
+										APIVersions: []string{"a"},
+										Resources:   []string{"a"},
+									},
 								},
 							},
 						},

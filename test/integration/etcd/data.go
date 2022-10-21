@@ -387,13 +387,13 @@ func GetEtcdStorageDataForNamespace(namespace string) map[schema.GroupVersionRes
 		// --
 
 		// k8s.io/kubernetes/pkg/apis/admissionregistration/v1alpha1
-		gvr("admissionregistration.k8s.io", "v1alpha1", "validatingadmissionpolicy"): {
-			Stub:             `{"metadata":{"name":"vap1","creationTimestamp":null},"spec":{"paramSource":{"apiVersion":"test.example.com/v1","kind":"Example"},"matchConstraints":{"objectName":["ob"]},"validations":[{"expression":"object.spec.replicas <= params.maxReplicas","message":"Too many replicas"}]}}`,
-			ExpectedEtcdPath: "/registry/validatingadmissionpolicy/vap1",
+		gvr("admissionregistration.k8s.io", "v1alpha1", "validatingadmissionpolicies"): {
+			Stub:             `{"metadata":{"name":"vap1","creationTimestamp":null},"spec":{"paramKind":{"apiVersion":"test.example.com/v1","kind":"Example"},"matchConstraints":{"objectName":["ob"]},"validations":[{"expression":"object.spec.replicas <= params.maxReplicas","message":"Too many replicas"}]}}`,
+			ExpectedEtcdPath: "/registry/validatingadmissionpolicies/vap1",
 		},
-		gvr("admissionregistration.k8s.io", "v1alpha1", "validatingadmissionpolicybinding"): {
-			Stub:             `{"metadata":{"name":"pb1","creationTimestamp":null},"spec":{"policyName":"replicalimit-policy.example.com","paramName":"replica-limit-test.example.com","matchResources":{"namespaces":["ns"]}}}`,
-			ExpectedEtcdPath: "/registry/validatingadmissionpolicybinding/pb1",
+		gvr("admissionregistration.k8s.io", "v1alpha1", "validatingadmissionpolicybindings"): {
+			Stub:             `{"metadata":{"name":"pb1","creationTimestamp":null},"spec":{"policyName":"replicalimit-policy.example.com","paramRef":{"name":"replica-limit-test.example.com"},"matchResources":{"namespaces":["ns"]}}}`,
+			ExpectedEtcdPath: "/registry/validatingadmissionpolicybindings/pb1",
 		},
 		// --
 

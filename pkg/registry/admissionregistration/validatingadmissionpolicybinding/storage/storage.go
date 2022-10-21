@@ -41,7 +41,7 @@ func NewREST(optsGetter generic.RESTOptionsGetter) (*REST, error) {
 		ObjectNameFunc: func(obj runtime.Object) (string, error) {
 			return obj.(*admissionregistration.ValidatingAdmissionPolicyBinding).Name, nil
 		},
-		DefaultQualifiedResource: admissionregistration.Resource("validatingadmissionpolicybinding"),
+		DefaultQualifiedResource: admissionregistration.Resource("validatingadmissionpolicybindings"),
 
 		CreateStrategy: validatingadmissionpolicybinding.Strategy,
 		UpdateStrategy: validatingadmissionpolicybinding.Strategy,

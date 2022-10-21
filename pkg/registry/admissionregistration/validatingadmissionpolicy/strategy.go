@@ -18,8 +18,7 @@ package validatingadmissionpolicy
 
 import (
 	"context"
-	"reflect"
-
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apiserver/pkg/storage/names"
@@ -56,7 +55,7 @@ func (validatingAdmissionPolicyStrategy) PrepareForUpdate(ctx context.Context, o
 	// Any changes to the spec increment the generation number, any changes to the
 	// status should reflect the generation number of the corresponding object.
 	// See metav1.ObjectMeta description for more information on Generation.
-	if !reflect.DeepEqual(oldIC.Spec, newIC.Spec) {
+	if !apiequality.Semantic.DeepEqual(oldIC.Spec, newIC.Spec) {
 		newIC.Generation = oldIC.Generation + 1
 	}
 }

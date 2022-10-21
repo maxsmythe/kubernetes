@@ -140,16 +140,16 @@ type ValidatingAdmissionPolicyList struct {
 
 // ValidatingAdmissionPolicySpec is the specification of the desired behavior of the AdmissionPolicy.
 type ValidatingAdmissionPolicySpec struct {
-	// ParamSource specifies the kind of resources used to parameterize this policy which has to be a CRD.
+	// ParamKind specifies the kind of resources used to parameterize this policy.
 	// If absent, there are no parameters for this policy and the param CEL variable will not be provided to validation expressions.
-	// If ParamSource refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.
+	// If ParamKind refers to a non-existent kind, this policy definition is mis-configured and the FailurePolicy is applied.
 	// +optional
-	ParamSource *ParamSource
+	ParamKind *ParamKind
 
 	// MatchConstraints specifies what resources this policy is designed to validate.
-	// The AdmissionPolicy cares about a validation if it matches _any_ Constriant.
+	// The AdmissionPolicy cares about a request if it matches _any_ Constraint.
 	// However, in order to prevent clusters from being put into an unstable state that cannot be recovered from via the API
-	// ValidatingAdmissionPolicy cannot match ValidatingWebhookConfiguration, MutatingWebhookConfiguration, ValidatingAdmissionPolicy, ValidatingAdmissionPolicyBinding, or policy param resources.
+	// ValidatingAdmissionPolicy cannot match ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding.
 	// Required.
 	MatchConstraints *MatchResources
 
@@ -167,8 +167,8 @@ type ValidatingAdmissionPolicySpec struct {
 	FailurePolicy *FailurePolicyType
 }
 
-// ParamSource is a tuple of Group Kind and Version.
-type ParamSource struct {
+// ParamKind is a tuple of Group Kind and Version.
+type ParamKind struct {
 	// APIVersion is the API group version the resources belong to.
 	// In format of "group/version".
 	// Required.
@@ -185,12 +185,10 @@ type Validation struct {
 	// ref: https://github.com/google/cel-spec
 	// CEL expressions have access to the contents of the Admission request/response, organized into CEL variables as well as some other useful variables:
 	//
-	//'object' - the object being validated
-	//'oldObject' - the existing object identified by AdmissionReview
-	//'request' - the context of admission request matches AdmissionRequest (except object, oldObject)
-	// Reference: /pkg/apis/admission/types.go#AdmissionRequest
-	//'params' - configuration data of the policy configuration being validated
-	// The `object` variable in the expression is bound to the resource this policy is designed to validate.
+	//'object' - The object from the incoming request. The value is null for DELETE requests.
+	//'oldObject' - The existing object. The value is null for CREATE requests.
+	//'request' - Attributes of the admission request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).
+	//'params' - Parameter resource referred to by the policy binding being evaluated. Only populated if the policy has a ParamSource.
 	//
 	// The `apiVersion`, `kind`, `metadata.name` and `metadata.generateName` are always accessible from the root of the
 	// object. No other metadata properties are accessible.
@@ -270,15 +268,27 @@ type ValidatingAdmissionPolicyBindingSpec struct {
 	// Required.
 	PolicyName string
 
-	// ParamName specifies the parameter resource used to configure the admission control policy.
-	// It should point to a Custom Resource which is created out of the CRD specified in ParamSource of ValidatingAdmissionPolicy it binded.
+	// ParamRef specifies the parameter resource used to configure the admission control policy.
+	// It should point to a resource of the type specified in ParamSource of the bound ValidatingAdmissionPolicy.
 	// If the resource referred to by ParamName does not exist, this binding is considered mis-configured and the FailurePolicy of the policy definition applied.
 	// +optional
-	ParamName string
+	ParamRef *ParamRef
 
 	// MatchResources declares what resources match this binding and will be validated by it.
+	// Note that this is intersected with the policy's matchResources, so only requests that are matched by the policy can be selected by this.
+	// If this is unset, all resources matched by the policy are validated by this binding
 	// +optional
 	MatchResources *MatchResources
+}
+
+// ParamRef references a parameter resource
+type ParamRef struct {
+	// Name of the resource being referenced.
+	Name string
+	// Namespace of the referenced resource.
+	// Should be empty for the cluster-scoped resources
+	// +optional
+	Namespace string
 }
 
 // MatchResources decides whether to run the admission control policy on an object based
@@ -289,11 +299,43 @@ type MatchResources struct {
 	// on whether the namespace for that object matches the selector. If the
 	// object itself is a namespace, the matching is performed on
 	// object.metadata.labels. If the object is another cluster scoped resource,
-	// it never skips the admission control policy.
+	// it never skips the policy.
+	//
+	// For example, to run the webhook on any objects whose namespace is not
+	// associated with "runlevel" of "0" or "1";  you will set the selector as
+	// follows:
+	// "namespaceSelector": {
+	//   "matchExpressions": [
+	//     {
+	//       "key": "runlevel",
+	//       "operator": "NotIn",
+	//       "values": [
+	//         "0",
+	//         "1"
+	//       ]
+	//     }
+	//   ]
+	// }
+	//
+	// If instead you want to only run the policy on any objects whose
+	// namespace is associated with the "environment" of "prod" or "staging";
+	// you will set the selector as follows:
+	// "namespaceSelector": {
+	//   "matchExpressions": [
+	//     {
+	//       "key": "environment",
+	//       "operator": "In",
+	//       "values": [
+	//         "prod",
+	//         "staging"
+	//       ]
+	//     }
+	//   ]
+	// }
 	//
 	// See
-	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels
-	// for examples of label selectors.
+	// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+	// for more examples of label selectors.
 	//
 	// Default to the empty LabelSelector, which matches everything.
 	// +optional
@@ -312,17 +354,13 @@ type MatchResources struct {
 	// +optional
 	ObjectSelector *metav1.LabelSelector
 	// ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+	// The policy cares about an operation if it matches _any_ Rule.
 	// +optional
-	ResourceRules []RuleWithOperations
+	ResourceRules []NamedRuleWithOperations
 	// ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+	// The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
 	// +optional
-	ExcludeResourceRules []RuleWithOperations
-	// ObjectName specifies the object name which the admission control policy should validate on.
-	// +optional
-	ObjectName []string
-	// ExcludeObjectName specifies the object name which the admission control policy should not validate on.
-	// +optional
-	ExcludeObjectName []string
+	ExcludeResourceRules []NamedRuleWithOperations
 	// matchPolicy defines how the "MatchResources" list is used to match incoming requests.
 	// Allowed values are "Exact" or "Equivalent".
 	//
@@ -339,6 +377,15 @@ type MatchResources struct {
 	// Defaults to "Equivalent"
 	// +optional
 	MatchPolicy *MatchPolicyType
+}
+
+// NamedRuleWithOperations is a tuple of Operations and Resources with ResourceNames.
+type NamedRuleWithOperations struct {
+	// ResourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+	// +optional
+	ResourceNames []string
+	// RuleWithOperations is a tuple of Operations and Resources.
+	RuleWithOperations RuleWithOperations
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

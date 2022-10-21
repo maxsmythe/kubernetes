@@ -55,7 +55,9 @@ func validPolicyBinding() *admissionregistration.ValidatingAdmissionPolicyBindin
 		},
 		Spec: admissionregistration.ValidatingAdmissionPolicyBindingSpec{
 			PolicyName: "replicalimit-policy.example.com",
-			ParamName:  "replica-limit-test.example.com",
+			ParamRef: &admissionregistration.ParamRef{
+				Name: "replica-limit-test.example.com",
+			},
 		},
 	}
 }

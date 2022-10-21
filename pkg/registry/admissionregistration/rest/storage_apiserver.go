@@ -79,8 +79,8 @@ func (p RESTStorageProvider) v1Storage(apiResourceConfigSource serverstorage.API
 func (p RESTStorageProvider) v1alpha1Storage(apiResourceConfigSource serverstorage.APIResourceConfigSource, restOptionsGetter generic.RESTOptionsGetter) (map[string]rest.Storage, error) {
 	storage := map[string]rest.Storage{}
 
-	// validatingadmissionpolicy
-	if resource := "validatingadmissionpolicy"; apiResourceConfigSource.ResourceEnabled(admissionregistrationv1alpha1.SchemeGroupVersion.WithResource(resource)) {
+	// validatingadmissionpolicies
+	if resource := "validatingadmissionpolicies"; apiResourceConfigSource.ResourceEnabled(admissionregistrationv1alpha1.SchemeGroupVersion.WithResource(resource)) {
 		policyStorage, err := validatingadmissionpolicystorage.NewREST(restOptionsGetter)
 		if err != nil {
 			return storage, err
@@ -88,8 +88,8 @@ func (p RESTStorageProvider) v1alpha1Storage(apiResourceConfigSource serverstora
 		storage[resource] = policyStorage
 	}
 
-	// policybinding
-	if resource := "validatingadmissionpolicybinding"; apiResourceConfigSource.ResourceEnabled(admissionregistrationv1alpha1.SchemeGroupVersion.WithResource(resource)) {
+	// validatingadmissionpolicybindings
+	if resource := "validatingadmissionpolicybindings"; apiResourceConfigSource.ResourceEnabled(admissionregistrationv1alpha1.SchemeGroupVersion.WithResource(resource)) {
 		policyBindingStorage, err := policybindingstorage.NewREST(restOptionsGetter)
 		if err != nil {
 			return storage, err

@@ -5990,7 +5990,7 @@ func TestTableRowDeepCopyShouldNotPanic(t *testing.T) {
 			},
 		},
 		{
-			name: "ValidatingPolicyBinding",
+			name: "ValidatingAdmissionPolicyBinding",
 			printer: func() ([]metav1.TableRow, error) {
 				return printValidatingAdmissionPolicyBinding(&admissionregistration.ValidatingAdmissionPolicyBinding{}, printers.GenerateOptions{})
 			},

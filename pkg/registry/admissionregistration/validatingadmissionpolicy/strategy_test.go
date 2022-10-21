@@ -55,7 +55,7 @@ func validValidatingAdmissionPolicy() *admissionregistration.ValidatingAdmission
 			Name: "foo",
 		},
 		Spec: admissionregistration.ValidatingAdmissionPolicySpec{
-			ParamSource: &admissionregistration.ParamSource{
+			ParamKind: &admissionregistration.ParamKind{
 				Kind:       "ReplicaLimit",
 				APIVersion: "rules.example.com/v1",
 			},
@@ -65,13 +65,25 @@ func validValidatingAdmissionPolicy() *admissionregistration.ValidatingAdmission
 				},
 			},
 			MatchConstraints: &admissionregistration.MatchResources{
-				ResourceRules: []admissionregistration.RuleWithOperations{
+				MatchPolicy: func() *admissionregistration.MatchPolicyType {
+					r := admissionregistration.MatchPolicyType("Exact")
+					return &r
+				}(),
+				ObjectSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"a": "b"},
+				},
+				ResourceRules: []admissionregistration.NamedRuleWithOperations{
 					{
-						Operations: []admissionregistration.OperationType{"CREATE"},
-						Rule: admissionregistration.Rule{
-							APIGroups:   []string{"a"},
-							APIVersions: []string{"a"},
-							Resources:   []string{"a"},
+						RuleWithOperations: admissionregistration.RuleWithOperations{
+							Operations: []admissionregistration.OperationType{"CREATE"},
+							Rule: admissionregistration.Rule{
+								APIGroups:   []string{"a"},
+								APIVersions: []string{"a"},
+								Resources:   []string{"a"},
+							},
 						},
 					},
 				},
