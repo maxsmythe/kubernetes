@@ -44,7 +44,7 @@
     ]
   },
   "spec": {
-    "paramSource": {
+    "paramKind": {
       "apiVersion": "apiVersionValue",
       "kind": "kindValue"
     },
@@ -79,6 +79,9 @@
       },
       "resourceRules": [
         {
+          "resourceNames": [
+            "resourceNamesValue"
+          ],
           "operations": [
             "operationsValue"
           ],
@@ -94,8 +97,11 @@
           "scope": "scopeValue"
         }
       ],
-      "excluderResourceRules": [
+      "excludeResourceRules": [
         {
+          "resourceNames": [
+            "resourceNamesValue"
+          ],
           "operations": [
             "operationsValue"
           ],
@@ -110,12 +116,6 @@
           ],
           "scope": "scopeValue"
         }
-      ],
-      "objectName": [
-        "objectNameValue"
-      ],
-      "excludeObjectName": [
-        "excludeObjectNameValue"
       ],
       "matchPolicy": "matchPolicyValue"
     },

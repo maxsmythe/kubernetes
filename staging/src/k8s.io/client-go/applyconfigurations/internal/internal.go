@@ -228,17 +228,11 @@ var schemaYAML = typed.YAMLObject(`types:
 - name: io.k8s.api.admissionregistration.v1alpha1.MatchResources
   map:
     fields:
-    - name: excludeObjectName
+    - name: excludeResourceRules
       type:
         list:
           elementType:
-            scalar: string
-          elementRelationship: atomic
-    - name: excluderResourceRules
-      type:
-        list:
-          elementType:
-            namedType: io.k8s.api.admissionregistration.v1alpha1.RuleWithOperations
+            namedType: io.k8s.api.admissionregistration.v1alpha1.NamedRuleWithOperations
           elementRelationship: atomic
     - name: matchPolicy
       type:
@@ -246,12 +240,6 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: namespaceSelector
       type:
         namedType: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector
-    - name: objectName
-      type:
-        list:
-          elementType:
-            scalar: string
-          elementRelationship: atomic
     - name: objectSelector
       type:
         namedType: io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector
@@ -259,18 +247,9 @@ var schemaYAML = typed.YAMLObject(`types:
       type:
         list:
           elementType:
-            namedType: io.k8s.api.admissionregistration.v1alpha1.RuleWithOperations
+            namedType: io.k8s.api.admissionregistration.v1alpha1.NamedRuleWithOperations
           elementRelationship: atomic
-- name: io.k8s.api.admissionregistration.v1alpha1.ParamSource
-  map:
-    fields:
-    - name: apiVersion
-      type:
-        scalar: string
-    - name: kind
-      type:
-        scalar: string
-- name: io.k8s.api.admissionregistration.v1alpha1.RuleWithOperations
+- name: io.k8s.api.admissionregistration.v1alpha1.NamedRuleWithOperations
   map:
     fields:
     - name: apiGroups
@@ -291,6 +270,12 @@ var schemaYAML = typed.YAMLObject(`types:
           elementType:
             scalar: string
           elementRelationship: atomic
+    - name: resourceNames
+      type:
+        list:
+          elementType:
+            scalar: string
+          elementRelationship: atomic
     - name: resources
       type:
         list:
@@ -300,6 +285,26 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: scope
       type:
         scalar: string
+- name: io.k8s.api.admissionregistration.v1alpha1.ParamKind
+  map:
+    fields:
+    - name: apiVersion
+      type:
+        scalar: string
+    - name: kind
+      type:
+        scalar: string
+    elementRelationship: atomic
+- name: io.k8s.api.admissionregistration.v1alpha1.ParamRef
+  map:
+    fields:
+    - name: name
+      type:
+        scalar: string
+    - name: namespace
+      type:
+        scalar: string
+    elementRelationship: atomic
 - name: io.k8s.api.admissionregistration.v1alpha1.ValidatingAdmissionPolicy
   map:
     fields:
@@ -340,9 +345,9 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: matchResources
       type:
         namedType: io.k8s.api.admissionregistration.v1alpha1.MatchResources
-    - name: paramName
+    - name: paramRef
       type:
-        scalar: string
+        namedType: io.k8s.api.admissionregistration.v1alpha1.ParamRef
     - name: policyName
       type:
         scalar: string
@@ -355,15 +360,17 @@ var schemaYAML = typed.YAMLObject(`types:
     - name: matchConstraints
       type:
         namedType: io.k8s.api.admissionregistration.v1alpha1.MatchResources
-    - name: paramSource
+    - name: paramKind
       type:
-        namedType: io.k8s.api.admissionregistration.v1alpha1.ParamSource
+        namedType: io.k8s.api.admissionregistration.v1alpha1.ParamKind
     - name: validations
       type:
         list:
           elementType:
             namedType: io.k8s.api.admissionregistration.v1alpha1.Validation
-          elementRelationship: atomic
+          elementRelationship: associative
+          keys:
+          - validation
 - name: io.k8s.api.admissionregistration.v1alpha1.Validation
   map:
     fields:

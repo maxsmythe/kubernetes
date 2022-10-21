@@ -48,13 +48,33 @@ func RegisterConversions(s *runtime.Scheme) error {
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*v1alpha1.ParamSource)(nil), (*admissionregistration.ParamSource)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_v1alpha1_ParamSource_To_admissionregistration_ParamSource(a.(*v1alpha1.ParamSource), b.(*admissionregistration.ParamSource), scope)
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.NamedRuleWithOperations)(nil), (*admissionregistration.NamedRuleWithOperations)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_NamedRuleWithOperations_To_admissionregistration_NamedRuleWithOperations(a.(*v1alpha1.NamedRuleWithOperations), b.(*admissionregistration.NamedRuleWithOperations), scope)
 	}); err != nil {
 		return err
 	}
-	if err := s.AddGeneratedConversionFunc((*admissionregistration.ParamSource)(nil), (*v1alpha1.ParamSource)(nil), func(a, b interface{}, scope conversion.Scope) error {
-		return Convert_admissionregistration_ParamSource_To_v1alpha1_ParamSource(a.(*admissionregistration.ParamSource), b.(*v1alpha1.ParamSource), scope)
+	if err := s.AddGeneratedConversionFunc((*admissionregistration.NamedRuleWithOperations)(nil), (*v1alpha1.NamedRuleWithOperations)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_admissionregistration_NamedRuleWithOperations_To_v1alpha1_NamedRuleWithOperations(a.(*admissionregistration.NamedRuleWithOperations), b.(*v1alpha1.NamedRuleWithOperations), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.ParamKind)(nil), (*admissionregistration.ParamKind)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_ParamKind_To_admissionregistration_ParamKind(a.(*v1alpha1.ParamKind), b.(*admissionregistration.ParamKind), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*admissionregistration.ParamKind)(nil), (*v1alpha1.ParamKind)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_admissionregistration_ParamKind_To_v1alpha1_ParamKind(a.(*admissionregistration.ParamKind), b.(*v1alpha1.ParamKind), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*v1alpha1.ParamRef)(nil), (*admissionregistration.ParamRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_v1alpha1_ParamRef_To_admissionregistration_ParamRef(a.(*v1alpha1.ParamRef), b.(*admissionregistration.ParamRef), scope)
+	}); err != nil {
+		return err
+	}
+	if err := s.AddGeneratedConversionFunc((*admissionregistration.ParamRef)(nil), (*v1alpha1.ParamRef)(nil), func(a, b interface{}, scope conversion.Scope) error {
+		return Convert_admissionregistration_ParamRef_To_v1alpha1_ParamRef(a.(*admissionregistration.ParamRef), b.(*v1alpha1.ParamRef), scope)
 	}); err != nil {
 		return err
 	}
@@ -154,10 +174,8 @@ func RegisterConversions(s *runtime.Scheme) error {
 func autoConvert_v1alpha1_MatchResources_To_admissionregistration_MatchResources(in *v1alpha1.MatchResources, out *admissionregistration.MatchResources, s conversion.Scope) error {
 	out.NamespaceSelector = (*v1.LabelSelector)(unsafe.Pointer(in.NamespaceSelector))
 	out.ObjectSelector = (*v1.LabelSelector)(unsafe.Pointer(in.ObjectSelector))
-	out.ResourceRules = *(*[]admissionregistration.RuleWithOperations)(unsafe.Pointer(&in.ResourceRules))
-	out.ExcludeResourceRules = *(*[]admissionregistration.RuleWithOperations)(unsafe.Pointer(&in.ExcludeResourceRules))
-	out.ObjectName = *(*[]string)(unsafe.Pointer(&in.ObjectName))
-	out.ExcludeObjectName = *(*[]string)(unsafe.Pointer(&in.ExcludeObjectName))
+	out.ResourceRules = *(*[]admissionregistration.NamedRuleWithOperations)(unsafe.Pointer(&in.ResourceRules))
+	out.ExcludeResourceRules = *(*[]admissionregistration.NamedRuleWithOperations)(unsafe.Pointer(&in.ExcludeResourceRules))
 	out.MatchPolicy = (*admissionregistration.MatchPolicyType)(unsafe.Pointer(in.MatchPolicy))
 	return nil
 }
@@ -170,10 +188,8 @@ func Convert_v1alpha1_MatchResources_To_admissionregistration_MatchResources(in 
 func autoConvert_admissionregistration_MatchResources_To_v1alpha1_MatchResources(in *admissionregistration.MatchResources, out *v1alpha1.MatchResources, s conversion.Scope) error {
 	out.NamespaceSelector = (*v1.LabelSelector)(unsafe.Pointer(in.NamespaceSelector))
 	out.ObjectSelector = (*v1.LabelSelector)(unsafe.Pointer(in.ObjectSelector))
-	out.ResourceRules = *(*[]v1alpha1.RuleWithOperations)(unsafe.Pointer(&in.ResourceRules))
-	out.ExcludeResourceRules = *(*[]v1alpha1.RuleWithOperations)(unsafe.Pointer(&in.ExcludeResourceRules))
-	out.ObjectName = *(*[]string)(unsafe.Pointer(&in.ObjectName))
-	out.ExcludeObjectName = *(*[]string)(unsafe.Pointer(&in.ExcludeObjectName))
+	out.ResourceRules = *(*[]v1alpha1.NamedRuleWithOperations)(unsafe.Pointer(&in.ResourceRules))
+	out.ExcludeResourceRules = *(*[]v1alpha1.NamedRuleWithOperations)(unsafe.Pointer(&in.ExcludeResourceRules))
 	out.MatchPolicy = (*v1alpha1.MatchPolicyType)(unsafe.Pointer(in.MatchPolicy))
 	return nil
 }
@@ -183,26 +199,74 @@ func Convert_admissionregistration_MatchResources_To_v1alpha1_MatchResources(in 
 	return autoConvert_admissionregistration_MatchResources_To_v1alpha1_MatchResources(in, out, s)
 }
 
-func autoConvert_v1alpha1_ParamSource_To_admissionregistration_ParamSource(in *v1alpha1.ParamSource, out *admissionregistration.ParamSource, s conversion.Scope) error {
+func autoConvert_v1alpha1_NamedRuleWithOperations_To_admissionregistration_NamedRuleWithOperations(in *v1alpha1.NamedRuleWithOperations, out *admissionregistration.NamedRuleWithOperations, s conversion.Scope) error {
+	out.ResourceNames = *(*[]string)(unsafe.Pointer(&in.ResourceNames))
+	if err := Convert_v1alpha1_RuleWithOperations_To_admissionregistration_RuleWithOperations(&in.RuleWithOperations, &out.RuleWithOperations, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_v1alpha1_NamedRuleWithOperations_To_admissionregistration_NamedRuleWithOperations is an autogenerated conversion function.
+func Convert_v1alpha1_NamedRuleWithOperations_To_admissionregistration_NamedRuleWithOperations(in *v1alpha1.NamedRuleWithOperations, out *admissionregistration.NamedRuleWithOperations, s conversion.Scope) error {
+	return autoConvert_v1alpha1_NamedRuleWithOperations_To_admissionregistration_NamedRuleWithOperations(in, out, s)
+}
+
+func autoConvert_admissionregistration_NamedRuleWithOperations_To_v1alpha1_NamedRuleWithOperations(in *admissionregistration.NamedRuleWithOperations, out *v1alpha1.NamedRuleWithOperations, s conversion.Scope) error {
+	out.ResourceNames = *(*[]string)(unsafe.Pointer(&in.ResourceNames))
+	if err := Convert_admissionregistration_RuleWithOperations_To_v1alpha1_RuleWithOperations(&in.RuleWithOperations, &out.RuleWithOperations, s); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Convert_admissionregistration_NamedRuleWithOperations_To_v1alpha1_NamedRuleWithOperations is an autogenerated conversion function.
+func Convert_admissionregistration_NamedRuleWithOperations_To_v1alpha1_NamedRuleWithOperations(in *admissionregistration.NamedRuleWithOperations, out *v1alpha1.NamedRuleWithOperations, s conversion.Scope) error {
+	return autoConvert_admissionregistration_NamedRuleWithOperations_To_v1alpha1_NamedRuleWithOperations(in, out, s)
+}
+
+func autoConvert_v1alpha1_ParamKind_To_admissionregistration_ParamKind(in *v1alpha1.ParamKind, out *admissionregistration.ParamKind, s conversion.Scope) error {
 	out.APIVersion = in.APIVersion
 	out.Kind = in.Kind
 	return nil
 }
 
-// Convert_v1alpha1_ParamSource_To_admissionregistration_ParamSource is an autogenerated conversion function.
-func Convert_v1alpha1_ParamSource_To_admissionregistration_ParamSource(in *v1alpha1.ParamSource, out *admissionregistration.ParamSource, s conversion.Scope) error {
-	return autoConvert_v1alpha1_ParamSource_To_admissionregistration_ParamSource(in, out, s)
+// Convert_v1alpha1_ParamKind_To_admissionregistration_ParamKind is an autogenerated conversion function.
+func Convert_v1alpha1_ParamKind_To_admissionregistration_ParamKind(in *v1alpha1.ParamKind, out *admissionregistration.ParamKind, s conversion.Scope) error {
+	return autoConvert_v1alpha1_ParamKind_To_admissionregistration_ParamKind(in, out, s)
 }
 
-func autoConvert_admissionregistration_ParamSource_To_v1alpha1_ParamSource(in *admissionregistration.ParamSource, out *v1alpha1.ParamSource, s conversion.Scope) error {
+func autoConvert_admissionregistration_ParamKind_To_v1alpha1_ParamKind(in *admissionregistration.ParamKind, out *v1alpha1.ParamKind, s conversion.Scope) error {
 	out.APIVersion = in.APIVersion
 	out.Kind = in.Kind
 	return nil
 }
 
-// Convert_admissionregistration_ParamSource_To_v1alpha1_ParamSource is an autogenerated conversion function.
-func Convert_admissionregistration_ParamSource_To_v1alpha1_ParamSource(in *admissionregistration.ParamSource, out *v1alpha1.ParamSource, s conversion.Scope) error {
-	return autoConvert_admissionregistration_ParamSource_To_v1alpha1_ParamSource(in, out, s)
+// Convert_admissionregistration_ParamKind_To_v1alpha1_ParamKind is an autogenerated conversion function.
+func Convert_admissionregistration_ParamKind_To_v1alpha1_ParamKind(in *admissionregistration.ParamKind, out *v1alpha1.ParamKind, s conversion.Scope) error {
+	return autoConvert_admissionregistration_ParamKind_To_v1alpha1_ParamKind(in, out, s)
+}
+
+func autoConvert_v1alpha1_ParamRef_To_admissionregistration_ParamRef(in *v1alpha1.ParamRef, out *admissionregistration.ParamRef, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Namespace = in.Namespace
+	return nil
+}
+
+// Convert_v1alpha1_ParamRef_To_admissionregistration_ParamRef is an autogenerated conversion function.
+func Convert_v1alpha1_ParamRef_To_admissionregistration_ParamRef(in *v1alpha1.ParamRef, out *admissionregistration.ParamRef, s conversion.Scope) error {
+	return autoConvert_v1alpha1_ParamRef_To_admissionregistration_ParamRef(in, out, s)
+}
+
+func autoConvert_admissionregistration_ParamRef_To_v1alpha1_ParamRef(in *admissionregistration.ParamRef, out *v1alpha1.ParamRef, s conversion.Scope) error {
+	out.Name = in.Name
+	out.Namespace = in.Namespace
+	return nil
+}
+
+// Convert_admissionregistration_ParamRef_To_v1alpha1_ParamRef is an autogenerated conversion function.
+func Convert_admissionregistration_ParamRef_To_v1alpha1_ParamRef(in *admissionregistration.ParamRef, out *v1alpha1.ParamRef, s conversion.Scope) error {
+	return autoConvert_admissionregistration_ParamRef_To_v1alpha1_ParamRef(in, out, s)
 }
 
 func autoConvert_v1alpha1_Rule_To_admissionregistration_Rule(in *v1alpha1.Rule, out *admissionregistration.Rule, s conversion.Scope) error {
@@ -333,7 +397,7 @@ func Convert_admissionregistration_ValidatingAdmissionPolicyBindingList_To_v1alp
 
 func autoConvert_v1alpha1_ValidatingAdmissionPolicyBindingSpec_To_admissionregistration_ValidatingAdmissionPolicyBindingSpec(in *v1alpha1.ValidatingAdmissionPolicyBindingSpec, out *admissionregistration.ValidatingAdmissionPolicyBindingSpec, s conversion.Scope) error {
 	out.PolicyName = in.PolicyName
-	out.ParamName = in.ParamName
+	out.ParamRef = (*admissionregistration.ParamRef)(unsafe.Pointer(in.ParamRef))
 	out.MatchResources = (*admissionregistration.MatchResources)(unsafe.Pointer(in.MatchResources))
 	return nil
 }
@@ -345,7 +409,7 @@ func Convert_v1alpha1_ValidatingAdmissionPolicyBindingSpec_To_admissionregistrat
 
 func autoConvert_admissionregistration_ValidatingAdmissionPolicyBindingSpec_To_v1alpha1_ValidatingAdmissionPolicyBindingSpec(in *admissionregistration.ValidatingAdmissionPolicyBindingSpec, out *v1alpha1.ValidatingAdmissionPolicyBindingSpec, s conversion.Scope) error {
 	out.PolicyName = in.PolicyName
-	out.ParamName = in.ParamName
+	out.ParamRef = (*v1alpha1.ParamRef)(unsafe.Pointer(in.ParamRef))
 	out.MatchResources = (*v1alpha1.MatchResources)(unsafe.Pointer(in.MatchResources))
 	return nil
 }
@@ -378,7 +442,7 @@ func Convert_admissionregistration_ValidatingAdmissionPolicyList_To_v1alpha1_Val
 }
 
 func autoConvert_v1alpha1_ValidatingAdmissionPolicySpec_To_admissionregistration_ValidatingAdmissionPolicySpec(in *v1alpha1.ValidatingAdmissionPolicySpec, out *admissionregistration.ValidatingAdmissionPolicySpec, s conversion.Scope) error {
-	out.ParamSource = (*admissionregistration.ParamSource)(unsafe.Pointer(in.ParamSource))
+	out.ParamKind = (*admissionregistration.ParamKind)(unsafe.Pointer(in.ParamKind))
 	out.MatchConstraints = (*admissionregistration.MatchResources)(unsafe.Pointer(in.MatchConstraints))
 	out.Validations = *(*[]admissionregistration.Validation)(unsafe.Pointer(&in.Validations))
 	out.FailurePolicy = (*admissionregistration.FailurePolicyType)(unsafe.Pointer(in.FailurePolicy))
@@ -391,7 +455,7 @@ func Convert_v1alpha1_ValidatingAdmissionPolicySpec_To_admissionregistration_Val
 }
 
 func autoConvert_admissionregistration_ValidatingAdmissionPolicySpec_To_v1alpha1_ValidatingAdmissionPolicySpec(in *admissionregistration.ValidatingAdmissionPolicySpec, out *v1alpha1.ValidatingAdmissionPolicySpec, s conversion.Scope) error {
-	out.ParamSource = (*v1alpha1.ParamSource)(unsafe.Pointer(in.ParamSource))
+	out.ParamKind = (*v1alpha1.ParamKind)(unsafe.Pointer(in.ParamKind))
 	out.MatchConstraints = (*v1alpha1.MatchResources)(unsafe.Pointer(in.MatchConstraints))
 	out.Validations = *(*[]v1alpha1.Validation)(unsafe.Pointer(&in.Validations))
 	out.FailurePolicy = (*v1alpha1.FailurePolicyType)(unsafe.Pointer(in.FailurePolicy))

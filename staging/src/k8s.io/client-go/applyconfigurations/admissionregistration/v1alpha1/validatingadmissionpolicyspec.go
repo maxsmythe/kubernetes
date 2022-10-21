@@ -25,7 +25,7 @@ import (
 // ValidatingAdmissionPolicySpecApplyConfiguration represents an declarative configuration of the ValidatingAdmissionPolicySpec type for use
 // with apply.
 type ValidatingAdmissionPolicySpecApplyConfiguration struct {
-	ParamSource      *ParamSourceApplyConfiguration                   `json:"paramSource,omitempty"`
+	ParamKind        *ParamKindApplyConfiguration                     `json:"paramKind,omitempty"`
 	MatchConstraints *MatchResourcesApplyConfiguration                `json:"matchConstraints,omitempty"`
 	Validations      []ValidationApplyConfiguration                   `json:"validations,omitempty"`
 	FailurePolicy    *admissionregistrationv1alpha1.FailurePolicyType `json:"failurePolicy,omitempty"`
@@ -37,11 +37,11 @@ func ValidatingAdmissionPolicySpec() *ValidatingAdmissionPolicySpecApplyConfigur
 	return &ValidatingAdmissionPolicySpecApplyConfiguration{}
 }
 
-// WithParamSource sets the ParamSource field in the declarative configuration to the given value
+// WithParamKind sets the ParamKind field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ParamSource field is set to the value of the last call.
-func (b *ValidatingAdmissionPolicySpecApplyConfiguration) WithParamSource(value *ParamSourceApplyConfiguration) *ValidatingAdmissionPolicySpecApplyConfiguration {
-	b.ParamSource = value
+// If called multiple times, the ParamKind field is set to the value of the last call.
+func (b *ValidatingAdmissionPolicySpecApplyConfiguration) WithParamKind(value *ParamKindApplyConfiguration) *ValidatingAdmissionPolicySpecApplyConfiguration {
+	b.ParamKind = value
 	return b
 }
 

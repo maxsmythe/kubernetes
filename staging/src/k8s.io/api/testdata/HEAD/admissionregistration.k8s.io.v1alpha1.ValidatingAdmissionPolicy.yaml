@@ -35,15 +35,15 @@ metadata:
 spec:
   failurePolicy: failurePolicyValue
   matchConstraints:
-    excludeObjectName:
-    - excludeObjectNameValue
-    excluderResourceRules:
+    excludeResourceRules:
     - apiGroups:
       - apiGroupsValue
       apiVersions:
       - apiVersionsValue
       operations:
       - operationsValue
+      resourceNames:
+      - resourceNamesValue
       resources:
       - resourcesValue
       scope: scopeValue
@@ -56,8 +56,6 @@ spec:
         - valuesValue
       matchLabels:
         matchLabelsKey: matchLabelsValue
-    objectName:
-    - objectNameValue
     objectSelector:
       matchExpressions:
       - key: keyValue
@@ -73,10 +71,12 @@ spec:
       - apiVersionsValue
       operations:
       - operationsValue
+      resourceNames:
+      - resourceNamesValue
       resources:
       - resourcesValue
       scope: scopeValue
-  paramSource:
+  paramKind:
     apiVersion: apiVersionValue
     kind: kindValue
   validations:

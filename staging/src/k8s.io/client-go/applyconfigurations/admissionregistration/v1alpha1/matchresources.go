@@ -28,10 +28,8 @@ import (
 type MatchResourcesApplyConfiguration struct {
 	NamespaceSelector    *v1.LabelSelectorApplyConfiguration            `json:"namespaceSelector,omitempty"`
 	ObjectSelector       *v1.LabelSelectorApplyConfiguration            `json:"objectSelector,omitempty"`
-	ResourceRules        []RuleWithOperationsApplyConfiguration         `json:"resourceRules,omitempty"`
-	ExcludeResourceRules []RuleWithOperationsApplyConfiguration         `json:"excluderResourceRules,omitempty"`
-	ObjectName           []string                                       `json:"objectName,omitempty"`
-	ExcludeObjectName    []string                                       `json:"excludeObjectName,omitempty"`
+	ResourceRules        []NamedRuleWithOperationsApplyConfiguration    `json:"resourceRules,omitempty"`
+	ExcludeResourceRules []NamedRuleWithOperationsApplyConfiguration    `json:"excludeResourceRules,omitempty"`
 	MatchPolicy          *admissionregistrationv1alpha1.MatchPolicyType `json:"matchPolicy,omitempty"`
 }
 
@@ -60,7 +58,7 @@ func (b *MatchResourcesApplyConfiguration) WithObjectSelector(value *v1.LabelSel
 // WithResourceRules adds the given value to the ResourceRules field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the ResourceRules field.
-func (b *MatchResourcesApplyConfiguration) WithResourceRules(values ...*RuleWithOperationsApplyConfiguration) *MatchResourcesApplyConfiguration {
+func (b *MatchResourcesApplyConfiguration) WithResourceRules(values ...*NamedRuleWithOperationsApplyConfiguration) *MatchResourcesApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithResourceRules")
@@ -73,32 +71,12 @@ func (b *MatchResourcesApplyConfiguration) WithResourceRules(values ...*RuleWith
 // WithExcludeResourceRules adds the given value to the ExcludeResourceRules field in the declarative configuration
 // and returns the receiver, so that objects can be build by chaining "With" function invocations.
 // If called multiple times, values provided by each call will be appended to the ExcludeResourceRules field.
-func (b *MatchResourcesApplyConfiguration) WithExcludeResourceRules(values ...*RuleWithOperationsApplyConfiguration) *MatchResourcesApplyConfiguration {
+func (b *MatchResourcesApplyConfiguration) WithExcludeResourceRules(values ...*NamedRuleWithOperationsApplyConfiguration) *MatchResourcesApplyConfiguration {
 	for i := range values {
 		if values[i] == nil {
 			panic("nil value passed to WithExcludeResourceRules")
 		}
 		b.ExcludeResourceRules = append(b.ExcludeResourceRules, *values[i])
-	}
-	return b
-}
-
-// WithObjectName adds the given value to the ObjectName field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the ObjectName field.
-func (b *MatchResourcesApplyConfiguration) WithObjectName(values ...string) *MatchResourcesApplyConfiguration {
-	for i := range values {
-		b.ObjectName = append(b.ObjectName, values[i])
-	}
-	return b
-}
-
-// WithExcludeObjectName adds the given value to the ExcludeObjectName field in the declarative configuration
-// and returns the receiver, so that objects can be build by chaining "With" function invocations.
-// If called multiple times, values provided by each call will be appended to the ExcludeObjectName field.
-func (b *MatchResourcesApplyConfiguration) WithExcludeObjectName(values ...string) *MatchResourcesApplyConfiguration {
-	for i := range values {
-		b.ExcludeObjectName = append(b.ExcludeObjectName, values[i])
 	}
 	return b
 }

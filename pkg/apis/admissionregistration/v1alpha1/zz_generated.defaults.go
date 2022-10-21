@@ -51,11 +51,11 @@ func SetObjectDefaults_ValidatingAdmissionPolicy(in *v1alpha1.ValidatingAdmissio
 		SetDefaults_MatchResources(in.Spec.MatchConstraints)
 		for i := range in.Spec.MatchConstraints.ResourceRules {
 			a := &in.Spec.MatchConstraints.ResourceRules[i]
-			SetDefaults_Rule(&a.Rule)
+			SetDefaults_Rule(&a.RuleWithOperations.Rule)
 		}
 		for i := range in.Spec.MatchConstraints.ExcludeResourceRules {
 			a := &in.Spec.MatchConstraints.ExcludeResourceRules[i]
-			SetDefaults_Rule(&a.Rule)
+			SetDefaults_Rule(&a.RuleWithOperations.Rule)
 		}
 	}
 }
@@ -65,11 +65,11 @@ func SetObjectDefaults_ValidatingAdmissionPolicyBinding(in *v1alpha1.ValidatingA
 		SetDefaults_MatchResources(in.Spec.MatchResources)
 		for i := range in.Spec.MatchResources.ResourceRules {
 			a := &in.Spec.MatchResources.ResourceRules[i]
-			SetDefaults_Rule(&a.Rule)
+			SetDefaults_Rule(&a.RuleWithOperations.Rule)
 		}
 		for i := range in.Spec.MatchResources.ExcludeResourceRules {
 			a := &in.Spec.MatchResources.ExcludeResourceRules[i]
-			SetDefaults_Rule(&a.Rule)
+			SetDefaults_Rule(&a.RuleWithOperations.Rule)
 		}
 	}
 }

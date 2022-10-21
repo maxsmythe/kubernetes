@@ -34,15 +34,15 @@ metadata:
   uid: uidValue
 spec:
   matchResources:
-    excludeObjectName:
-    - excludeObjectNameValue
-    excluderResourceRules:
+    excludeResourceRules:
     - apiGroups:
       - apiGroupsValue
       apiVersions:
       - apiVersionsValue
       operations:
       - operationsValue
+      resourceNames:
+      - resourceNamesValue
       resources:
       - resourcesValue
       scope: scopeValue
@@ -55,8 +55,6 @@ spec:
         - valuesValue
       matchLabels:
         matchLabelsKey: matchLabelsValue
-    objectName:
-    - objectNameValue
     objectSelector:
       matchExpressions:
       - key: keyValue
@@ -72,8 +70,12 @@ spec:
       - apiVersionsValue
       operations:
       - operationsValue
+      resourceNames:
+      - resourceNamesValue
       resources:
       - resourcesValue
       scope: scopeValue
-  paramName: paramNameValue
+  paramRef:
+    name: nameValue
+    namespace: namespaceValue
   policyName: policyNameValue

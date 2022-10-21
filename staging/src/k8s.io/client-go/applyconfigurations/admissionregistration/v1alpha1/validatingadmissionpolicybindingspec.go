@@ -22,7 +22,7 @@ package v1alpha1
 // with apply.
 type ValidatingAdmissionPolicyBindingSpecApplyConfiguration struct {
 	PolicyName     *string                           `json:"policyName,omitempty"`
-	ParamName      *string                           `json:"paramName,omitempty"`
+	ParamRef       *ParamRefApplyConfiguration       `json:"paramRef,omitempty"`
 	MatchResources *MatchResourcesApplyConfiguration `json:"matchResources,omitempty"`
 }
 
@@ -40,11 +40,11 @@ func (b *ValidatingAdmissionPolicyBindingSpecApplyConfiguration) WithPolicyName(
 	return b
 }
 
-// WithParamName sets the ParamName field in the declarative configuration to the given value
+// WithParamRef sets the ParamRef field in the declarative configuration to the given value
 // and returns the receiver, so that objects can be built by chaining "With" function invocations.
-// If called multiple times, the ParamName field is set to the value of the last call.
-func (b *ValidatingAdmissionPolicyBindingSpecApplyConfiguration) WithParamName(value string) *ValidatingAdmissionPolicyBindingSpecApplyConfiguration {
-	b.ParamName = &value
+// If called multiple times, the ParamRef field is set to the value of the last call.
+func (b *ValidatingAdmissionPolicyBindingSpecApplyConfiguration) WithParamRef(value *ParamRefApplyConfiguration) *ValidatingAdmissionPolicyBindingSpecApplyConfiguration {
+	b.ParamRef = value
 	return b
 }
 
