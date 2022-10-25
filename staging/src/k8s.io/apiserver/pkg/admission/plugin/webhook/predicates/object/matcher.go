@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/admission/plugin/webhook"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/types"
 	"k8s.io/klog/v2"
 )
 
@@ -45,8 +45,8 @@ func matchObject(obj runtime.Object, selector labels.Selector) bool {
 
 // MatchObjectSelector decideds whether the request matches the ObjectSelector
 // of the webhook. Only when they match, the webhook is called.
-func (m *Matcher) MatchObjectSelector(h webhook.WebhookAccessor, attr admission.Attributes) (bool, *apierrors.StatusError) {
-	selector, err := h.GetParsedObjectSelector()
+func (m *Matcher) MatchObjectSelector(p types.ObjectSelectorProvider, attr admission.Attributes) (bool, *apierrors.StatusError) {
+	selector, err := p.GetParsedObjectSelector()
 	if err != nil {
 		return false, apierrors.NewInternalError(err)
 	}

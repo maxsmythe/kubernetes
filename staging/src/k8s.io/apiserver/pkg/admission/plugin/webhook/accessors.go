@@ -19,15 +19,21 @@ package webhook
 import (
 	"sync"
 
-	"k8s.io/api/admissionregistration/v1"
+	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/types"
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/rest"
 )
 
 // WebhookAccessor provides a common interface to both mutating and validating webhook types.
 type WebhookAccessor interface {
+	// This accessor provides the methods needed to support matching against webhook
+	// predicates
+	types.NamespaceSelectorProvider
+	types.ObjectSelectorProvider
+
 	// GetUID gets a string that uniquely identifies the webhook.
 	GetUID() string
 
@@ -53,10 +59,6 @@ type WebhookAccessor interface {
 	GetFailurePolicy() *v1.FailurePolicyType
 	// GetMatchPolicy gets the webhook MatchPolicy field.
 	GetMatchPolicy() *v1.MatchPolicyType
-	// GetNamespaceSelector gets the webhook NamespaceSelector field.
-	GetNamespaceSelector() *metav1.LabelSelector
-	// GetObjectSelector gets the webhook ObjectSelector field.
-	GetObjectSelector() *metav1.LabelSelector
 	// GetSideEffects gets the webhook SideEffects field.
 	GetSideEffects() *v1.SideEffectClass
 	// GetTimeoutSeconds gets the webhook TimeoutSeconds field.

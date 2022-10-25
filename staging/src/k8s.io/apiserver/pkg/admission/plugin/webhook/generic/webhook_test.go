@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	"k8s.io/api/admissionregistration/v1"
+	v1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,8 +30,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
-	"k8s.io/apiserver/pkg/admission/plugin/webhook/namespace"
-	"k8s.io/apiserver/pkg/admission/plugin/webhook/object"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/namespace"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/object"
 )
 
 func TestShouldCallHook(t *testing.T) {

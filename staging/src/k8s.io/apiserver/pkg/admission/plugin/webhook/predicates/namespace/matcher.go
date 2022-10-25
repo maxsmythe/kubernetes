@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apiserver/pkg/admission"
-	"k8s.io/apiserver/pkg/admission/plugin/webhook"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/types"
 	clientset "k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 )
@@ -87,7 +87,7 @@ func (m *Matcher) GetNamespaceLabels(attr admission.Attributes) (map[string]stri
 
 // MatchNamespaceSelector decideds whether the request matches the
 // namespaceSelctor of the webhook. Only when they match, the webhook is called.
-func (m *Matcher) MatchNamespaceSelector(h webhook.WebhookAccessor, attr admission.Attributes) (bool, *apierrors.StatusError) {
+func (m *Matcher) MatchNamespaceSelector(p types.NamespaceSelectorProvider, attr admission.Attributes) (bool, *apierrors.StatusError) {
 	namespaceName := attr.GetNamespace()
 	if len(namespaceName) == 0 && attr.GetResource().Resource != "namespaces" {
 		// If the request is about a cluster scoped resource, and it is not a
@@ -96,7 +96,7 @@ func (m *Matcher) MatchNamespaceSelector(h webhook.WebhookAccessor, attr admissi
 		// Also update the comment in types.go
 		return true, nil
 	}
-	selector, err := h.GetParsedNamespaceSelector()
+	selector, err := p.GetParsedNamespaceSelector()
 	if err != nil {
 		return false, apierrors.NewInternalError(err)
 	}
