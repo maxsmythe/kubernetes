@@ -19,7 +19,7 @@ package webhook
 import (
 	"sync"
 
-	"k8s.io/api/admissionregistration/v1"
+	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/namespace"
@@ -67,10 +67,16 @@ type WebhookAccessor interface {
 	// GetAdmissionReviewVersions gets the webhook AdmissionReviewVersions field.
 	GetAdmissionReviewVersions() []string
 
+	// GetMatchConditions gets the webhook match conditions field.
+	GetMatchConditions() []v1.MatchCondition
+
 	// GetMutatingWebhook if the accessor contains a MutatingWebhook, returns it and true, else returns false.
 	GetMutatingWebhook() (*v1.MutatingWebhook, bool)
 	// GetValidatingWebhook if the accessor contains a ValidatingWebhook, returns it and true, else returns false.
 	GetValidatingWebhook() (*v1.ValidatingWebhook, bool)
+
+	// GetType returns "validating" if it is a ValidatingWebhook or "admit" if it is a mutating webhook, used for metrics
+	GetWebhookStepType() string
 }
 
 // NewMutatingWebhookAccessor creates an accessor for a MutatingWebhook.
@@ -165,12 +171,20 @@ func (m *mutatingWebhookAccessor) GetAdmissionReviewVersions() []string {
 	return m.AdmissionReviewVersions
 }
 
+func (m *mutatingWebhookAccessor) GetMatchConditions() []v1.MatchCondition {
+	return m.MatchConditions
+}
+
 func (m *mutatingWebhookAccessor) GetMutatingWebhook() (*v1.MutatingWebhook, bool) {
 	return m.MutatingWebhook, true
 }
 
 func (m *mutatingWebhookAccessor) GetValidatingWebhook() (*v1.ValidatingWebhook, bool) {
 	return nil, false
+}
+
+func (m *mutatingWebhookAccessor) GetWebhookStepType() string {
+	return "mutating"
 }
 
 // NewValidatingWebhookAccessor creates an accessor for a ValidatingWebhook.
@@ -265,12 +279,20 @@ func (v *validatingWebhookAccessor) GetAdmissionReviewVersions() []string {
 	return v.AdmissionReviewVersions
 }
 
+func (v *validatingWebhookAccessor) GetMatchConditions() []v1.MatchCondition {
+	return v.MatchConditions
+}
+
 func (v *validatingWebhookAccessor) GetMutatingWebhook() (*v1.MutatingWebhook, bool) {
 	return nil, false
 }
 
 func (v *validatingWebhookAccessor) GetValidatingWebhook() (*v1.ValidatingWebhook, bool) {
 	return v.ValidatingWebhook, true
+}
+
+func (m *validatingWebhookAccessor) GetWebhookStepType() string {
+	return "validating"
 }
 
 // hookClientConfigForWebhook construct a webhookutil.ClientConfig using a WebhookAccessor to access

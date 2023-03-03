@@ -69,7 +69,7 @@ func (d *validatingDispatcher) Dispatch(ctx context.Context, attr admission.Attr
 	// Construct all the versions we need to call our webhooks
 	versionedAttrs := map[schema.GroupVersionKind]*admission.VersionedAttributes{}
 	for _, hook := range hooks {
-		invocation, statusError := d.plugin.ShouldCallHook(hook, attr, o)
+		invocation, statusError := d.plugin.ShouldCallHook(ctx, hook, attr, o)
 		if statusError != nil {
 			return statusError
 		}
@@ -81,10 +81,7 @@ func (d *validatingDispatcher) Dispatch(ctx context.Context, attr admission.Attr
 		if _, ok := versionedAttrs[invocation.Kind]; ok {
 			continue
 		}
-		versionedAttr, err := admission.NewVersionedAttributes(attr, invocation.Kind, o)
-		if err != nil {
-			return apierrors.NewInternalError(err)
-		}
+		versionedAttr := invocation.VersionedAttr
 		versionedAttrs[invocation.Kind] = versionedAttr
 	}
 

@@ -101,7 +101,7 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 		if versionedAttr != nil {
 			attrForCheck = versionedAttr
 		}
-		invocation, statusErr := a.plugin.ShouldCallHook(hook, attrForCheck, o)
+		invocation, statusErr := a.plugin.ShouldCallHook(ctx, hook, attrForCheck, o)
 		if statusErr != nil {
 			return statusErr
 		}
@@ -123,10 +123,7 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 
 		if versionedAttr == nil {
 			// First webhook, create versioned attributes
-			var err error
-			if versionedAttr, err = admission.NewVersionedAttributes(attr, invocation.Kind, o); err != nil {
-				return apierrors.NewInternalError(err)
-			}
+			versionedAttr = invocation.VersionedAttr
 		} else {
 			// Subsequent webhook, convert existing versioned attributes to this webhook's version
 			if err := admission.ConvertVersionedAttributes(versionedAttr, invocation.Kind, o); err != nil {

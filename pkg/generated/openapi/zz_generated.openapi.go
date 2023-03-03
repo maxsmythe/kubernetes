@@ -1191,7 +1191,7 @@ func schema_k8sio_api_admissionregistration_v1_MatchCondition(ref common.Referen
 					},
 					"expression": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NOTE: Placeholder documentation, to be replaced by https://github.com/kubernetes/website/issues/39089. Docs waiting on: https://github.com/kubernetes/website/pull/39642\n\n`expression` represents the expression which will be evaluated by CEL. ref: https://github.com/google/cel-spec CEL expressions have access to the contents of the AdmissionRequest, organized into CEL variables:\n\n'object' - The object from the incoming request. The value is null for DELETE requests. 'oldObject' - The existing object. The value is null for CREATE requests. 'request' - Attributes of the admission request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n\nRequired.",
+							Description: "Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/\n\nExpression represents the expression which will be evaluated by CEL. ref: https://github.com/google/cel-spec CEL expressions have access to the contents of the AdmissionRequest, organized into CEL variables:\n\n'object' - The object from the incoming request. The value is null for DELETE requests. 'oldObject' - The existing object. The value is null for CREATE requests. 'request' - Attributes of the admission request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n\nRequired.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -1318,7 +1318,7 @@ func schema_k8sio_api_admissionregistration_v1_MutatingWebhook(ref common.Refere
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "MatchConditions is a list of conditions on the AdmissionRequest that must be met for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.",
+							Description: "MatchConditions is a list of conditions on the AdmissionRequest that must be met for a request to be sent to this webhook. All conditions must be met for the request to be matched. An empty list of matchConditions matches all requests. If there is an error evaluating the condition, the error is ignored and the condition is considered matched. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1776,7 +1776,7 @@ func schema_k8sio_api_admissionregistration_v1_ValidatingWebhook(ref common.Refe
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "MatchConditions is a list of conditions on the AdmissionRequest that must be met for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.",
+							Description: "MatchConditions is a list of conditions on the AdmissionRequest that must be met for a request to be sent to this webhook. All conditions must be met for the request to be matched. An empty list of matchConditions matches all requests. If there is an error evaluating the condition, the error is ignored and the condition is considered matched. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2589,7 +2589,7 @@ func schema_k8sio_api_admissionregistration_v1beta1_MatchCondition(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MatchCondition represents a condition which must by fulfilled for a request to be sent to a webhook.",
+				Description: "MatchCondition represents a condition which must be fulfilled for a request to be sent to a webhook.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
@@ -2602,7 +2602,7 @@ func schema_k8sio_api_admissionregistration_v1beta1_MatchCondition(ref common.Re
 					},
 					"expression": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NOTE: Placeholder documentation, to be replaced by https://github.com/kubernetes/website/issues/39089. Docs waiting on: https://github.com/kubernetes/website/pull/39642\n\nExpression represents the expression which will be evaluated by CEL. ref: https://github.com/google/cel-spec CEL expressions have access to the contents of the AdmissionRequest, organized into CEL variables:\n\n'object' - The object from the incoming request. The value is null for DELETE requests. 'oldObject' - The existing object. The value is null for CREATE requests. 'request' - Attributes of the admission request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n\nRequired.",
+							Description: "Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/\n\nExpression represents the expression which will be evaluated by CEL. ref: https://github.com/google/cel-spec CEL expressions have access to the contents of the AdmissionRequest, organized into CEL variables:\n\n'object' - The object from the incoming request. The value is null for DELETE requests. 'oldObject' - The existing object. The value is null for CREATE requests. 'request' - Attributes of the admission request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).\n\nRequired.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -2725,7 +2725,7 @@ func schema_k8sio_api_admissionregistration_v1beta1_MutatingWebhook(ref common.R
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "MatchConditions is a list of conditions on the AdmissionRequest that must be met for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.",
+							Description: "MatchConditions is a list of conditions on the AdmissionRequest that must be met for a request to be sent to this webhook. All conditions must be met for the request to be matched. An empty list of matchConditions matches all requests. If there is an error evaluating the condition, the error is ignored and the condition is considered matched. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -3000,7 +3000,7 @@ func schema_k8sio_api_admissionregistration_v1beta1_ValidatingWebhook(ref common
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "MatchConditions is a list of conditions on the AdmissionRequest that must be met for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.",
+							Description: "MatchConditions is a list of conditions on the AdmissionRequest that must be met for a request to be sent to this webhook. All conditions must be met for the request to be matched. An empty list of matchConditions matches all requests. If there is an error evaluating the condition, the error is ignored and the condition is considered matched. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

@@ -30,10 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	plugincel "k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/generic"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/cel"
 	"k8s.io/apiserver/pkg/util/webhook"
-
 	"k8s.io/kubernetes/pkg/apis/admissionregistration"
 	admissionregistrationv1 "k8s.io/kubernetes/pkg/apis/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/kubernetes/pkg/apis/admissionregistration/v1beta1"
@@ -318,6 +318,9 @@ func validateValidatingWebhook(hook *admissionregistration.ValidatingWebhook, op
 	case cc.Service != nil:
 		allErrors = append(allErrors, webhook.ValidateWebhookService(fldPath.Child("clientConfig").Child("service"), cc.Service.Name, cc.Service.Namespace, cc.Service.Path, cc.Service.Port)...)
 	}
+
+	allErrors = append(allErrors, validateMatchConditions(hook.MatchConditions, fldPath.Child("matchConditions"))...)
+
 	return allErrors
 }
 
@@ -371,6 +374,9 @@ func validateMutatingWebhook(hook *admissionregistration.MutatingWebhook, opts v
 	case cc.Service != nil:
 		allErrors = append(allErrors, webhook.ValidateWebhookService(fldPath.Child("clientConfig").Child("service"), cc.Service.Name, cc.Service.Namespace, cc.Service.Path, cc.Service.Port)...)
 	}
+
+	allErrors = append(allErrors, validateMatchConditions(hook.MatchConditions, fldPath.Child("matchConditions"))...)
+
 	return allErrors
 }
 
@@ -778,6 +784,47 @@ func validateNamedRuleWithOperations(n *admissionregistration.NamedRuleWithOpera
 	return allErrors
 }
 
+func validateMatchConditions(m []admissionregistration.MatchCondition, fldPath *field.Path) field.ErrorList {
+	var allErrors field.ErrorList
+	conditionNames := sets.NewString()
+	for i, matchCondition := range m {
+		allErrors = append(allErrors, validateMatchCondition(&matchCondition, fldPath.Index(i))...)
+		if len(matchCondition.Name) > 0 {
+			if conditionNames.Has(matchCondition.Name) {
+				allErrors = append(allErrors, field.Duplicate(fldPath.Index(i).Child("name"), matchCondition.Name))
+			} else {
+				conditionNames.Insert(matchCondition.Name)
+			}
+		}
+	}
+	return allErrors
+}
+
+func validateMatchCondition(v *admissionregistration.MatchCondition, fldPath *field.Path) field.ErrorList {
+	var allErrors field.ErrorList
+	trimmedExpression := strings.TrimSpace(v.Expression)
+	if len(trimmedExpression) == 0 {
+		allErrors = append(allErrors, field.Required(fldPath.Child("expression"), ""))
+	} else {
+		result := plugincel.CompileCELExpression(
+			&generic.MatchCondition{
+				Expression: trimmedExpression,
+			},
+			plugincel.OptionalVariableDeclarations{
+				HasParams:     false,
+				HasAuthorizer: true,
+			},
+			celconfig.PerCallLimit)
+		allErrors = append(allErrors, evaluateCELCompilationError(result.Error, fldPath.Child("expression"), v.Expression)...)
+	}
+	if len(v.Name) == 0 {
+		allErrors = append(allErrors, field.Required(fldPath.Child("name"), ""))
+	} else {
+		allErrors = append(allErrors, apivalidation.ValidateQualifiedName(v.Name, fldPath.Child("name"))...)
+	}
+	return allErrors
+}
+
 func validateValidation(v *admissionregistration.Validation, paramKind *admissionregistration.ParamKind, fldPath *field.Path) field.ErrorList {
 	var allErrors field.ErrorList
 	trimmedExpression := strings.TrimSpace(v.Expression)
@@ -790,18 +837,7 @@ func validateValidation(v *admissionregistration.Validation, paramKind *admissio
 			Message:    v.Message,
 			Reason:     v.Reason,
 		}, plugincel.OptionalVariableDeclarations{HasParams: paramKind != nil, HasAuthorizer: true}, celconfig.PerCallLimit)
-		if result.Error != nil {
-			switch result.Error.Type {
-			case cel.ErrorTypeRequired:
-				allErrors = append(allErrors, field.Required(fldPath.Child("expression"), result.Error.Detail))
-			case cel.ErrorTypeInvalid:
-				allErrors = append(allErrors, field.Invalid(fldPath.Child("expression"), v.Expression, result.Error.Detail))
-			case cel.ErrorTypeInternal:
-				allErrors = append(allErrors, field.InternalError(fldPath.Child("expression"), result.Error))
-			default:
-				allErrors = append(allErrors, field.InternalError(fldPath.Child("expression"), fmt.Errorf("unsupported error type: %w", result.Error)))
-			}
-		}
+		allErrors = append(allErrors, evaluateCELCompilationError(result.Error, fldPath.Child("expression"), v.Expression)...)
 	}
 	if len(v.Message) > 0 && len(trimmedMsg) == 0 {
 		allErrors = append(allErrors, field.Invalid(fldPath.Child("message"), v.Message, "message must be non-empty if specified"))
@@ -812,6 +848,23 @@ func validateValidation(v *admissionregistration.Validation, paramKind *admissio
 	}
 	if v.Reason != nil && !supportedValidationPolicyReason.Has(string(*v.Reason)) {
 		allErrors = append(allErrors, field.NotSupported(fldPath.Child("reason"), *v.Reason, supportedValidationPolicyReason.List()))
+	}
+	return allErrors
+}
+
+func evaluateCELCompilationError(err *cel.Error, fldPath *field.Path, expression string) field.ErrorList {
+	var allErrors field.ErrorList
+	if err != nil {
+		switch err.Type {
+		case cel.ErrorTypeRequired:
+			allErrors = append(allErrors, field.Required(fldPath, err.Detail))
+		case cel.ErrorTypeInvalid:
+			allErrors = append(allErrors, field.Invalid(fldPath, expression, err.Detail))
+		case cel.ErrorTypeInternal:
+			allErrors = append(allErrors, field.InternalError(fldPath, err))
+		default:
+			allErrors = append(allErrors, field.InternalError(fldPath, fmt.Errorf("unsupported error type: %w", err)))
+		}
 	}
 	return allErrors
 }

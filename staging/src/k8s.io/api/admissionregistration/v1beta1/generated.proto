@@ -29,7 +29,7 @@ import "k8s.io/apimachinery/pkg/runtime/schema/generated.proto";
 // Package-wide variables from generator "generated".
 option go_package = "k8s.io/api/admissionregistration/v1beta1";
 
-// MatchCondition represents a condition which must by fulfilled for a request to be sent to a webhook.
+// MatchCondition represents a condition which must be fulfilled for a request to be sent to a webhook.
 message MatchCondition {
   // Name is an identifier for this match condition, used for strategic merging of MatchConditions,
   // as well as providing an identifier for logging purposes. A good name should be descriptive of
@@ -38,8 +38,7 @@ message MatchCondition {
   // Required.
   optional string name = 1;
 
-  // NOTE: Placeholder documentation, to be replaced by https://github.com/kubernetes/website/issues/39089.
-  // Docs waiting on: https://github.com/kubernetes/website/pull/39642
+  // Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
   //
   // Expression represents the expression which will be evaluated by CEL.
   // ref: https://github.com/google/cel-spec
@@ -203,9 +202,10 @@ message MutatingWebhook {
   optional string reinvocationPolicy = 10;
 
   // MatchConditions is a list of conditions on the AdmissionRequest that must be met
-  // for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for
-  // the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met
-  // the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
+  // for a request to be sent to this webhook. All conditions must be met for the request to be matched.
+  // An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+  // the error is ignored and the condition is considered matched.
+  // This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
   //
   // +patchMergeKey=name
   // +patchStrategy=merge
@@ -395,9 +395,10 @@ message ValidatingWebhook {
   repeated string admissionReviewVersions = 8;
 
   // MatchConditions is a list of conditions on the AdmissionRequest that must be met
-  // for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for
-  // the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met
-  // the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
+  // for a request to be sent to this webhook. All conditions must be met for the request to be matched.
+  // An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+  // the error is ignored and the condition is considered matched.
+  // This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
   //
   // +patchMergeKey=name
   // +patchStrategy=merge

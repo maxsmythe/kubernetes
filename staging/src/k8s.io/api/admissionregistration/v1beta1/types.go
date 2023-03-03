@@ -285,9 +285,10 @@ type ValidatingWebhook struct {
 	AdmissionReviewVersions []string `json:"admissionReviewVersions,omitempty" protobuf:"bytes,8,rep,name=admissionReviewVersions"`
 
 	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
-	// for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for
-	// the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met
-	// the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
+	// for a request to be sent to this webhook. All conditions must be met for the request to be matched.
+	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+	// the error is ignored and the condition is considered matched.
+	// This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
 	//
 	// +patchMergeKey=name
 	// +patchStrategy=merge
@@ -295,7 +296,7 @@ type ValidatingWebhook struct {
 	// +listMapKey=name
 	// +featureGate=AdmissionWebhookMatchConditions
 	// +optional
-	MatchConditions []MatchCondition `json:"matchConditions" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,11,rep,name=matchConditions"`
+	MatchConditions []MatchCondition `json:"matchConditions,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,11,rep,name=matchConditions"`
 }
 
 // MutatingWebhook describes an admission webhook and the resources and operations it applies to.
@@ -448,9 +449,10 @@ type MutatingWebhook struct {
 	ReinvocationPolicy *ReinvocationPolicyType `json:"reinvocationPolicy,omitempty" protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
 
 	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
-	// for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for
-	// the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met
-	// the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
+	// for a request to be sent to this webhook. All conditions must be met for the request to be matched.
+	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+	// the error is ignored and the condition is considered matched.
+	// This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
 	//
 	// +patchMergeKey=name
 	// +patchStrategy=merge
@@ -458,7 +460,7 @@ type MutatingWebhook struct {
 	// +listMapKey=name
 	// +featureGate=AdmissionWebhookMatchConditions
 	// +optional
-	MatchConditions []MatchCondition `json:"matchConditions" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,12,rep,name=matchConditions"`
+	MatchConditions []MatchCondition `json:"matchConditions,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,12,rep,name=matchConditions"`
 }
 
 // ReinvocationPolicyType specifies what type of policy the admission hook uses.
@@ -558,9 +560,8 @@ type ServiceReference struct {
 	Port *int32 `json:"port,omitempty" protobuf:"varint,4,opt,name=port"`
 }
 
-// MatchCondition represents a condition which must by fulfilled for a request to be sent to a webhook.
+// MatchCondition represents a condition which must be fulfilled for a request to be sent to a webhook.
 type MatchCondition struct {
-
 	// Name is an identifier for this match condition, used for strategic merging of MatchConditions,
 	// as well as providing an identifier for logging purposes. A good name should be descriptive of
 	// the associated expression.
@@ -568,8 +569,7 @@ type MatchCondition struct {
 	// Required.
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
 
-	// NOTE: Placeholder documentation, to be replaced by https://github.com/kubernetes/website/issues/39089.
-	// Docs waiting on: https://github.com/kubernetes/website/pull/39642
+	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
 	//
 	// Expression represents the expression which will be evaluated by CEL.
 	// ref: https://github.com/google/cel-spec

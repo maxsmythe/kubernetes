@@ -309,9 +309,10 @@ type ValidatingWebhook struct {
 	AdmissionReviewVersions []string `json:"admissionReviewVersions" protobuf:"bytes,8,rep,name=admissionReviewVersions"`
 
 	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
-	// for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for
-	// the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met
-	// the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
+	// for a request to be sent to this webhook. All conditions must be met for the request to be matched.
+	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+	// the error is ignored and the condition is considered matched.
+	// This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
 	//
 	// +patchMergeKey=name
 	// +patchStrategy=merge
@@ -469,9 +470,10 @@ type MutatingWebhook struct {
 	ReinvocationPolicy *ReinvocationPolicyType `json:"reinvocationPolicy,omitempty" protobuf:"bytes,10,opt,name=reinvocationPolicy,casttype=ReinvocationPolicyType"`
 
 	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
-	// for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for
-	// the request to be matched. An empty list of matchConditions matches all requests. If any condition in the list fails to be met
-	// the webhook will not be run on the request. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
+	// for a request to be sent to this webhook. All conditions must be met for the request to be matched.
+	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+	// the error is ignored and the condition is considered matched.
+	// This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
 	//
 	// +patchMergeKey=name
 	// +patchStrategy=merge
@@ -600,10 +602,9 @@ type MatchCondition struct {
 	// Required.
 	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
 
-	// NOTE: Placeholder documentation, to be replaced by https://github.com/kubernetes/website/issues/39089.
-	// Docs waiting on: https://github.com/kubernetes/website/pull/39642
+	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
 	//
-	// `expression` represents the expression which will be evaluated by CEL.
+	// Expression represents the expression which will be evaluated by CEL.
 	// ref: https://github.com/google/cel-spec
 	// CEL expressions have access to the contents of the AdmissionRequest, organized into CEL variables:
 	//

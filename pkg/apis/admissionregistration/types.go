@@ -683,13 +683,13 @@ type ValidatingWebhook struct {
 	// +optional
 	AdmissionReviewVersions []string
 
-	// MatchConditions is a list of conditions on the AdmissionRequest ('request') that must be met
-	// for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for
-	// the request to be matched. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
-	// If this field is not set no matching will occur through cel. If any condition in the list fails to be met apiserver
-	// will not call out to the webhook.
+	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
+	// for a request to be sent to this webhook. All conditions must be met for the request to be matched.
+	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+	// the error is ignored and the condition is considered matched.
+	// This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
 	//
-	// Defaults to nil
+	// +featureGate=AdmissionWebhookMatchConditions
 	// +optional
 	MatchConditions []MatchCondition
 }
@@ -835,13 +835,13 @@ type MutatingWebhook struct {
 	// +optional
 	ReinvocationPolicy *ReinvocationPolicyType
 
-	// MatchConditions is a list of conditions on the AdmissionRequest ('request') that must be met
-	// for a request to be sent to this webhook. All conditions in the list must evaluate to TRUE for
-	// the request to be matched. This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
-	// If this field is not set no matching will occur through cel. If any condition in the list fails to be met apiserver
-	// will not call out to the webhook.
+	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
+	// for a request to be sent to this webhook. All conditions must be met for the request to be matched.
+	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+	// the error is ignored and the condition is considered matched.
+	// This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
 	//
-	// Defaults to nil
+	// +featureGate=AdmissionWebhookMatchConditions
 	// +optional
 	MatchConditions []MatchCondition
 }
@@ -959,8 +959,7 @@ type MatchCondition struct {
 	// Required.
 	Name string
 
-	// NOTE: Placeholder documentation, to be replaced by https://github.com/kubernetes/website/issues/39089.
-	// Docs waiting on: https://github.com/kubernetes/website/pull/39642
+	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
 	//
 	// Expression represents the expression which will be evaluated by CEL.
 	// ref: https://github.com/google/cel-spec
