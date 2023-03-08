@@ -23,16 +23,17 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	celtypes "github.com/google/cel-go/common/types"
+	"github.com/stretchr/testify/require"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 )
 
@@ -54,6 +55,17 @@ func (f *fakeCelFilter) CompilationErrors() []error {
 	return []error{}
 }
 
+var _ matchconditions.Matcher = &fakeCELMatcher{}
+
+type fakeCELMatcher struct {
+	error   error
+	matches bool
+}
+
+func (f *fakeCELMatcher) Match(ctx context.Context, versionedAttr *admission.VersionedAttributes, versionedParams runtime.Object) (bool, string, error) {
+	return f.matches, "placeholder", f.error
+}
+
 func TestValidate(t *testing.T) {
 	ignore := v1.Ignore
 	fail := v1.Fail
@@ -67,6 +79,7 @@ func TestValidate(t *testing.T) {
 	cases := []struct {
 		name             string
 		failPolicy       *v1.FailurePolicyType
+		matcher          matchconditions.Matcher
 		evaluations      []cel.EvaluationResult
 		auditEvaluations []cel.EvaluationResult
 		policyDecision   []PolicyDecision
@@ -572,11 +585,47 @@ func TestValidate(t *testing.T) {
 			},
 			failPolicy: &ignore,
 		},
+		{
+			name:    "no match surpresses failure",
+			matcher: &fakeCELMatcher{matches: false},
+			evaluations: []cel.EvaluationResult{
+				{
+					Error:              errors.New(""),
+					ExpressionAccessor: &ValidationCondition{},
+				},
+			},
+			policyDecision: []PolicyDecision{},
+			failPolicy:     &fail,
+		},
+		{
+			// TODO this may need to change depending on results of failure behavior debate
+			name:    "match error => presumed match",
+			matcher: &fakeCELMatcher{matches: true, error: fmt.Errorf("test error")},
+			evaluations: []cel.EvaluationResult{
+				{
+					Error:              errors.New(""),
+					ExpressionAccessor: &ValidationCondition{},
+				},
+			},
+			policyDecision: []PolicyDecision{
+				{
+					Action: ActionDeny,
+				},
+			},
+			failPolicy: &fail,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			var matcher matchconditions.Matcher
+			if tc.matcher == nil {
+				matcher = &fakeCELMatcher{matches: true}
+			} else {
+				matcher = tc.matcher
+			}
 			v := validator{
 				failPolicy: tc.failPolicy,
+				celMatcher: matcher,
 				validationFilter: &fakeCelFilter{
 					evaluations: tc.evaluations,
 					throwError:  tc.throwError,
@@ -629,6 +678,7 @@ func TestContextCanceled(t *testing.T) {
 	f := fc.Compile([]cel.ExpressionAccessor{&ValidationCondition{Expression: "[1,2,3,4,5,6,7,8,9,10].map(x, [1,2,3,4,5,6,7,8,9,10].map(y, x*y)) == []"}}, cel.OptionalVariableDeclarations{HasParams: false, HasAuthorizer: false}, celconfig.PerCallLimit)
 	v := validator{
 		failPolicy:       &fail,
+		celMatcher:       &fakeCELMatcher{matches: true},
 		validationFilter: f,
 		auditAnnotationFilter: &fakeCelFilter{
 			evaluations: nil,

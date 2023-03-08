@@ -132,6 +132,12 @@
         "key": "keyValue",
         "valueExpression": "valueExpressionValue"
       }
+    ],
+    "matchConditions": [
+      {
+        "name": "nameValue",
+        "expression": "expressionValue"
+      }
     ]
   }
 }

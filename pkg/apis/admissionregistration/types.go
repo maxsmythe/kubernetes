@@ -160,6 +160,14 @@ type ValidatingAdmissionPolicySpec struct {
 	// +optional
 	Validations []Validation
 
+	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
+	// for a request to be sent to be evaluated. All conditions must be met for the request to be matched.
+	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+	// the error is ignored and the condition is considered matched.
+	//
+	// +optional
+	MatchConditions []MatchCondition
+
 	// failurePolicy defines how to handle failures for the admission policy. Failures can
 	// occur from CEL expression parse errors, type check errors, runtime errors and invalid
 	// or mis-configured policy definitions or bindings.

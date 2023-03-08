@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/google/cel-go/cel"
+
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -136,6 +138,49 @@ type ValidatingAdmissionPolicySpec struct {
 	// +listType=atomic
 	// +optional
 	AuditAnnotations []AuditAnnotation `json:"auditAnnotations,omitempty" protobuf:"bytes,5,rep,name=auditAnnotations"`
+
+	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
+	// for a request to be validated. All conditions must be met for the request to be matched.
+	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
+	// the error is ignored and the condition is considered matched.
+	//
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	MatchConditions []MatchCondition `json:"matchConditions" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,6,rep,name=matchConditions"`
+}
+
+// MatchCondition represents a condition which must be fulfilled for a request to be sent to a webhook.
+type MatchCondition struct {
+	// Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+	// as well as providing an identifier for logging purposes. A good name should be descriptive of
+	// the associated expression.
+	// Name must be a valid RFC 1123 DNS subdomain, and unique in a set of MatchConditions.
+	// Required.
+	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
+
+	// Documentation on CEL: https://kubernetes.io/docs/reference/using-api/cel/
+	//
+	// Expression represents the expression which will be evaluated by CEL.
+	// ref: https://github.com/google/cel-spec
+	// CEL expressions have access to the contents of the AdmissionRequest, organized into CEL variables:
+	//
+	// 'object' - The object from the incoming request. The value is null for DELETE requests.
+	// 'oldObject' - The existing object. The value is null for CREATE requests.
+	// 'request' - Attributes of the admission request([ref](/pkg/apis/admission/types.go#AdmissionRequest)).
+	//
+	// Required.
+	Expression string `json:"expression" protobuf:"bytes,2,opt,name=expression"`
+}
+
+func (m *MatchCondition) GetExpression() string {
+	return m.Expression
+}
+
+func (m *MatchCondition) ReturnTypes() []*cel.Type {
+	return []*cel.Type{cel.BoolType}
 }
 
 // ParamKind is a tuple of Group Kind and Version.

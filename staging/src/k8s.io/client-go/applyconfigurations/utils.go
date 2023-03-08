@@ -143,6 +143,8 @@ func ForKind(kind schema.GroupVersionKind) interface{} {
 		// Group=admissionregistration.k8s.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithKind("AuditAnnotation"):
 		return &admissionregistrationv1alpha1.AuditAnnotationApplyConfiguration{}
+	case v1alpha1.SchemeGroupVersion.WithKind("MatchCondition"):
+		return &admissionregistrationv1alpha1.MatchConditionApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("MatchResources"):
 		return &admissionregistrationv1alpha1.MatchResourcesApplyConfiguration{}
 	case v1alpha1.SchemeGroupVersion.WithKind("NamedRuleWithOperations"):

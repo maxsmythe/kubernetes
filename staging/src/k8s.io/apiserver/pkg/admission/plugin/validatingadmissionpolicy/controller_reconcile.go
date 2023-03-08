@@ -33,6 +33,7 @@ import (
 	celmetrics "k8s.io/apiserver/pkg/admission/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
 	"k8s.io/apiserver/pkg/admission/plugin/validatingadmissionpolicy/internal/generic"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/client-go/dynamic"
@@ -57,7 +58,7 @@ type policyController struct {
 
 	matcher Matcher
 
-	newValidator
+	newValidator newValidator
 
 	// Lock which protects:
 	//  - cachedPolicies
@@ -92,7 +93,7 @@ type policyController struct {
 	authz authorizer.Authorizer
 }
 
-type newValidator func(validationFilter cel.Filter, auditAnnotationFilter cel.Filter, failurePolicy *v1.FailurePolicyType, authorizer authorizer.Authorizer) Validator
+type newValidator func(validationFilter cel.Filter, celMatcher matchconditions.Matcher, auditAnnotationFilter cel.Filter, failurePolicy *v1.FailurePolicyType, authorizer authorizer.Authorizer) Validator
 
 func newPolicyController(
 	restMapper meta.RESTMapper,
@@ -458,11 +459,21 @@ func (c *policyController) latestPolicyData() []policyData {
 				if definitionInfo.lastReconciledValue.Spec.ParamKind != nil {
 					hasParam = true
 				}
+				matchConditions := definitionInfo.lastReconciledValue.Spec.MatchConditions
+				matchExpressionAccessors := make([]cel.ExpressionAccessor, len(matchConditions))
+				for i, condition := range matchConditions {
+					matchExpressionAccessors[i] = &matchconditions.MatchCondition{
+						Name:       condition.Name,
+						Expression: condition.Expression,
+					}
+				}
 				optionalVars := cel.OptionalVariableDeclarations{HasParams: hasParam, HasAuthorizer: true}
+				failurePolicy := convertv1alpha1FailurePolicyTypeTov1FailurePolicyType(definitionInfo.lastReconciledValue.Spec.FailurePolicy)
 				bindingInfo.validator = c.newValidator(
 					c.filterCompiler.Compile(convertv1alpha1Validations(definitionInfo.lastReconciledValue.Spec.Validations), optionalVars, celconfig.PerCallLimit),
+					matchconditions.NewMatcher(c.filterCompiler.Compile(matchExpressionAccessors, optionalVars, celconfig.PerCallLimit), c.authz, failurePolicy, "validatingadmissionpolicy", definitionInfo.lastReconciledValue.Name),
 					c.filterCompiler.Compile(convertv1alpha1AuditAnnotations(definitionInfo.lastReconciledValue.Spec.AuditAnnotations), optionalVars, celconfig.PerCallLimit),
-					convertv1alpha1FailurePolicyTypeTov1FailurePolicyType(definitionInfo.lastReconciledValue.Spec.FailurePolicy),
+					failurePolicy,
 					c.authz,
 				)
 			}

@@ -28,20 +28,23 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/cel"
+	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	"k8s.io/klog/v2"
 )
 
 // validator implements the Validator interface
 type validator struct {
+	celMatcher            matchconditions.Matcher
 	validationFilter      cel.Filter
 	auditAnnotationFilter cel.Filter
 	failPolicy            *v1.FailurePolicyType
 	authorizer            authorizer.Authorizer
 }
 
-func NewValidator(validationFilter, auditAnnotationFilter cel.Filter, failPolicy *v1.FailurePolicyType, authorizer authorizer.Authorizer) Validator {
+func NewValidator(validationFilter cel.Filter, celMatcher matchconditions.Matcher, auditAnnotationFilter cel.Filter, failPolicy *v1.FailurePolicyType, authorizer authorizer.Authorizer) Validator {
 	return &validator{
+		celMatcher:            celMatcher,
 		validationFilter:      validationFilter,
 		auditAnnotationFilter: auditAnnotationFilter,
 		failPolicy:            failPolicy,
@@ -71,6 +74,25 @@ func (v *validator) Validate(ctx context.Context, versionedAttr *admission.Versi
 		f = v1.Fail
 	} else {
 		f = *v.failPolicy
+	}
+
+	matchResults := v.celMatcher.Match(ctx, versionedAttr, versionedParams)
+	if matchResults.Error != nil {
+		return ValidateResult{
+			Decisions: []PolicyDecision{
+				{
+					Action:     policyDecisionActionForError(f),
+					Evaluation: EvalError,
+					Message:    matchResults.Error.Error(),
+				},
+			},
+		}
+	}
+
+	// if preconditions are not met, then do not return any validations
+	if !matchResults.Matches {
+		klog.V(5).Infof("Match conditions not met, skipping validation")
+		return ValidateResult{}
 	}
 
 	optionalVars := cel.OptionalVariableBindings{VersionedParams: versionedParams, Authorizer: v.authorizer}
