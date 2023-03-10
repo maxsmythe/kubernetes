@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	jsonpatch "github.com/evanphx/json-patch"
 	"go.opentelemetry.io/otel/attribute"
 
@@ -75,6 +77,24 @@ func newMutatingDispatcher(p *Plugin) func(cm *webhookutil.ClientManager) generi
 	}
 }
 
+var _ generic.VersionedAttributeAccessor = &versionedAttributeAccessor{}
+
+type versionedAttributeAccessor struct {
+	versionedAttr *admission.VersionedAttributes
+}
+
+func (v *versionedAttributeAccessor) VersionedAttribute(attr admission.Attributes, o admission.ObjectInterfaces, gvk schema.GroupVersionKind) (*admission.VersionedAttributes, error) {
+	if v.versionedAttr != nil {
+		return v.versionedAttr, nil
+	}
+	versionedAttr, err := admission.NewVersionedAttributes(attr, gvk, o)
+	if err != nil {
+		return nil, err
+	}
+	v.versionedAttr = versionedAttr
+	return versionedAttr, nil
+}
+
 var _ generic.Dispatcher = &mutatingDispatcher{}
 
 func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces, hooks []webhook.WebhookAccessor) error {
@@ -101,7 +121,10 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 		if versionedAttr != nil {
 			attrForCheck = versionedAttr
 		}
-		invocation, statusErr := a.plugin.ShouldCallHook(ctx, hook, attrForCheck, o)
+		v := &versionedAttributeAccessor{
+			versionedAttr: versionedAttr,
+		}
+		invocation, statusErr := a.plugin.ShouldCallHook(ctx, hook, attrForCheck, o, v)
 		if statusErr != nil {
 			return statusErr
 		}
@@ -121,14 +144,10 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 			continue
 		}
 
-		if versionedAttr == nil {
-			// First webhook, create versioned attributes
-			versionedAttr = invocation.VersionedAttr
-		} else {
-			// Subsequent webhook, convert existing versioned attributes to this webhook's version
-			if err := admission.ConvertVersionedAttributes(versionedAttr, invocation.Kind, o); err != nil {
-				return apierrors.NewInternalError(err)
-			}
+		// Subsequent webhook, convert existing versioned attributes to this webhook's version
+		//TODO: ivelichkovich, can maybe do similar gvk based map cache optimization as validation here and not always covert
+		if err := admission.ConvertVersionedAttributes(v.versionedAttr, invocation.Kind, o); err != nil {
+			return apierrors.NewInternalError(err)
 		}
 
 		t := time.Now()

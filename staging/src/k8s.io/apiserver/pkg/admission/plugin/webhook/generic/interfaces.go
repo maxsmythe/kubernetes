@@ -18,12 +18,15 @@ package generic
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/runtime"
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
 )
+
+type VersionedAttributeAccessor interface {
+	VersionedAttribute(attr admission.Attributes, o admission.ObjectInterfaces, gvk schema.GroupVersionKind) (*admission.VersionedAttributes, error)
+}
 
 // Source can list dynamic webhook plugins.
 type Source interface {
@@ -34,11 +37,10 @@ type Source interface {
 // WebhookInvocation describes how to call a webhook, including the resource and subresource the webhook registered for,
 // and the kind that should be sent to the webhook.
 type WebhookInvocation struct {
-	Webhook       webhook.WebhookAccessor
-	Resource      schema.GroupVersionResource
-	Subresource   string
-	Kind          schema.GroupVersionKind
-	VersionedAttr *admission.VersionedAttributes
+	Webhook     webhook.WebhookAccessor
+	Resource    schema.GroupVersionResource
+	Subresource string
+	Kind        schema.GroupVersionKind
 }
 
 // Dispatcher dispatches webhook call to a list of webhooks with admission attributes as argument.
@@ -48,10 +50,4 @@ type Dispatcher interface {
 	// the namespaceSelector or the objectSelector of the hook does not
 	// match. A non-nil error means the request is rejected.
 	Dispatch(ctx context.Context, a admission.Attributes, o admission.ObjectInterfaces, hooks []webhook.WebhookAccessor) error
-}
-
-// Matcher contains logic for converting Evaluations to bool of matches or does not match
-type Matcher interface {
-	// Match is used to take cel evaluations and convert into decisions
-	Match(ctx context.Context, versionedAttr *admission.VersionedAttributes, versionedParams runtime.Object) (bool, string, error)
 }

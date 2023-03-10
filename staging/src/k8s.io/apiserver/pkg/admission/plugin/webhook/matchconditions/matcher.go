@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package generic
+package matchconditions
 
 import (
 	"context"
@@ -22,6 +22,7 @@ import (
 	"github.com/google/cel-go/cel"
 	celtypes "github.com/google/cel-go/common/types"
 
+	v1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	admissionmetrics "k8s.io/apiserver/pkg/admission/metrics"
@@ -34,11 +35,7 @@ import (
 var _ celplugin.ExpressionAccessor = &MatchCondition{}
 
 // MatchCondition contains the inputs needed to compile, evaluate and match a cel expression
-type MatchCondition struct {
-	Expression      string
-	Name            string
-	WebhookStepType string
-}
+type MatchCondition v1.MatchCondition
 
 func (v *MatchCondition) GetExpression() string {
 	return v.Expression
@@ -52,14 +49,16 @@ var _ Matcher = &matcher{}
 
 // matcher evaluates compiled cel expressions and determines if they match the given request or not
 type matcher struct {
-	filter     celplugin.Filter
-	authorizer authorizer.Authorizer
+	filter      celplugin.Filter
+	authorizer  authorizer.Authorizer
+	webhookType string
 }
 
-func NewMatcher(filter celplugin.Filter, authorizer authorizer.Authorizer) Matcher {
+func NewMatcher(filter celplugin.Filter, authorizer authorizer.Authorizer, webhookType string) Matcher {
 	return &matcher{
-		filter:     filter,
-		authorizer: authorizer,
+		filter:      filter,
+		authorizer:  authorizer,
+		webhookType: webhookType,
 	}
 }
 
@@ -78,6 +77,8 @@ func (m *matcher) Match(ctx context.Context, versionedAttr *admission.VersionedA
 		return true, "", err
 	}
 
+	//TODO: update per fail policy discussion
+
 	for _, evalResult := range evalResults {
 		matchCondition, ok := evalResult.ExpressionAccessor.(*MatchCondition)
 		if !ok {
@@ -85,7 +86,7 @@ func (m *matcher) Match(ctx context.Context, versionedAttr *admission.VersionedA
 			continue
 		}
 		if evalResult.Error != nil {
-			admissionmetrics.Metrics.ObserveMatchConditionEvalError(ctx, matchCondition.Name, matchCondition.WebhookStepType)
+			admissionmetrics.Metrics.ObserveMatchConditionEvalError(ctx, matchCondition.Name, m.webhookType)
 		}
 		if evalResult.EvalResult == celtypes.False {
 			return false, matchCondition.Name, nil

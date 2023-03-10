@@ -34,7 +34,6 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/namespace"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/object"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/predicates/rules"
-	celconfig "k8s.io/apiserver/pkg/apis/cel"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	webhookutil "k8s.io/apiserver/pkg/util/webhook"
 	"k8s.io/client-go/informers"
@@ -47,7 +46,6 @@ type Webhook struct {
 	*admission.Handler
 
 	sourceFactory sourceFactory
-	newMatcher
 
 	hookSource       Source
 	clientManager    *webhookutil.ClientManager
@@ -65,8 +63,6 @@ var (
 
 type sourceFactory func(f informers.SharedInformerFactory) Source
 type dispatcherFactory func(cm *webhookutil.ClientManager) Dispatcher
-
-type newMatcher func(filter cel.Filter, authorizer authorizer.Authorizer) Matcher
 
 // NewWebhook creates a new generic admission webhook.
 func NewWebhook(handler *admission.Handler, configFile io.Reader, sourceFactory sourceFactory, dispatcherFactory dispatcherFactory) (*Webhook, error) {
@@ -102,7 +98,6 @@ func NewWebhook(handler *admission.Handler, configFile io.Reader, sourceFactory 
 		objectMatcher:    &object.Matcher{},
 		dispatcher:       dispatcherFactory(&cm),
 		filterCompiler:   cel.NewFilterCompiler(),
-		newMatcher:       NewMatcher,
 	}, nil
 }
 
@@ -155,7 +150,7 @@ func (a *Webhook) ValidateInitialization() error {
 
 // ShouldCallHook returns invocation details if the webhook should be called, nil if the webhook should not be called,
 // or an error if an error was encountered during evaluation.
-func (a *Webhook) ShouldCallHook(ctx context.Context, h webhook.WebhookAccessor, attr admission.Attributes, o admission.ObjectInterfaces) (*WebhookInvocation, *apierrors.StatusError) {
+func (a *Webhook) ShouldCallHook(ctx context.Context, h webhook.WebhookAccessor, attr admission.Attributes, o admission.ObjectInterfaces, v VersionedAttributeAccessor) (*WebhookInvocation, *apierrors.StatusError) {
 	matches, matchNsErr := a.namespaceMatcher.MatchNamespaceSelector(h, attr)
 	// Should not return an error here for webhooks which do not apply to the request, even if err is an unexpected scenario.
 	if !matches && matchNsErr == nil {
@@ -222,40 +217,21 @@ func (a *Webhook) ShouldCallHook(ctx context.Context, h webhook.WebhookAccessor,
 		return nil, matchObjErr
 	}
 
-	versionedAttr, err := admission.NewVersionedAttributes(attr, invocation.Kind, o)
-	invocation.VersionedAttr = versionedAttr
-
 	matchConditions := h.GetMatchConditions()
 	if len(matchConditions) > 0 {
-		expressions := make([]cel.ExpressionAccessor, len(matchConditions))
-		for i, matchCondition := range matchConditions {
-			expressions[i] = &MatchCondition{
-				Name:            matchCondition.Name,
-				Expression:      matchCondition.Expression,
-				WebhookStepType: h.GetWebhookStepType(),
-			}
+		versionedAttr, err := v.VersionedAttribute(attr, o, invocation.Kind)
+		if err != nil {
+			return nil, apierrors.NewInternalError(err)
 		}
 
-		matcher := a.newMatcher(a.filterCompiler.Compile(
-			expressions,
-			cel.OptionalVariableDeclarations{
-				HasParams:     false,
-				HasAuthorizer: true,
-			},
-			celconfig.PerCallLimit,
-		), a.authorizer)
+		matcher := h.GetCompiledMatcher(a.filterCompiler, a.authorizer)
+		matchesCondition, matchConditionName, err := matcher.Match(ctx, versionedAttr, nil)
 		if err != nil {
-			klog.V(5).Infof("Skipping match condition evaluation for webhook %v due to internal error converting to versionedAttr", h.GetName())
-			return nil, apierrors.NewInternalError(err)
-		} else {
-			matchesCondition, matchConditionName, err := matcher.Match(ctx, versionedAttr, nil)
-			if err != nil {
-				// Ignore error and assume that an error is matching rather than skipping the webhook invocation on error
-				klog.V(5).Infof("Error evaluating match conditions for webhook %v, executing webhook call", h.GetName(), matchConditionName)
-			} else if !matchesCondition {
-				klog.V(5).Infof("Skipping call to webhook %v due to match condition %v", h.GetName(), matchConditionName)
-				return nil, nil
-			}
+			// Ignore error and assume that an error is matching rather than skipping the webhook invocation on error
+			klog.V(5).Infof("Error evaluating match conditions for webhook %v, executing webhook call", h.GetName(), matchConditionName)
+		} else if !matchesCondition {
+			klog.V(5).Infof("Skipping call to webhook %v due to match condition %v", h.GetName(), matchConditionName)
+			return nil, nil
 		}
 	}
 

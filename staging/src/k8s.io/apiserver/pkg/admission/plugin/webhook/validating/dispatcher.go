@@ -62,14 +62,42 @@ func newValidatingDispatcher(p *Plugin) func(cm *webhookutil.ClientManager) gene
 	}
 }
 
+var _ generic.VersionedAttributeAccessor = &versionedAttributeAccessor{}
+
+type versionedAttributeAccessor struct {
+	versionedAttrs map[schema.GroupVersionKind]*admission.VersionedAttributes
+}
+
+func (v *versionedAttributeAccessor) VersionedAttribute(attr admission.Attributes, o admission.ObjectInterfaces, gvk schema.GroupVersionKind) (*admission.VersionedAttributes, error) {
+	if val, ok := v.versionedAttrs[gvk]; ok {
+		return val, nil
+	}
+	versionedAttr, err := admission.NewVersionedAttributes(attr, gvk, o)
+	if err != nil {
+		return nil, err
+	}
+	v.versionedAttrs[gvk] = versionedAttr
+	return versionedAttr, nil
+}
+
+func (v *versionedAttributeAccessor) VersionedAttributeFromCache(gvk schema.GroupVersionKind) (*admission.VersionedAttributes, bool) {
+	if val, ok := v.versionedAttrs[gvk]; ok {
+		return val, true
+	} else {
+		return nil, false
+	}
+}
+
 var _ generic.Dispatcher = &validatingDispatcher{}
 
 func (d *validatingDispatcher) Dispatch(ctx context.Context, attr admission.Attributes, o admission.ObjectInterfaces, hooks []webhook.WebhookAccessor) error {
 	var relevantHooks []*generic.WebhookInvocation
 	// Construct all the versions we need to call our webhooks
-	versionedAttrs := map[schema.GroupVersionKind]*admission.VersionedAttributes{}
+	versionedAttrAccessor := &versionedAttributeAccessor{
+		versionedAttrs: map[schema.GroupVersionKind]*admission.VersionedAttributes{},
+	}
 	for _, hook := range hooks {
-		invocation, statusError := d.plugin.ShouldCallHook(ctx, hook, attr, o)
+		invocation, statusError := d.plugin.ShouldCallHook(ctx, hook, attr, o, versionedAttrAccessor)
 		if statusError != nil {
 			return statusError
 		}
@@ -77,12 +105,10 @@ func (d *validatingDispatcher) Dispatch(ctx context.Context, attr admission.Attr
 			continue
 		}
 		relevantHooks = append(relevantHooks, invocation)
-		// If we already have this version, continue
-		if _, ok := versionedAttrs[invocation.Kind]; ok {
-			continue
+		_, err := versionedAttrAccessor.VersionedAttribute(attr, o, invocation.Kind)
+		if err != nil {
+			return apierrors.NewInternalError(err)
 		}
-		versionedAttr := invocation.VersionedAttr
-		versionedAttrs[invocation.Kind] = versionedAttr
 	}
 
 	if len(relevantHooks) == 0 {
@@ -105,7 +131,7 @@ func (d *validatingDispatcher) Dispatch(ctx context.Context, attr admission.Attr
 		go func(invocation *generic.WebhookInvocation, idx int) {
 			ignoreClientCallFailures := false
 			hookName := "unknown"
-			versionedAttr := versionedAttrs[invocation.Kind]
+			versionedAttr, _ := versionedAttrAccessor.VersionedAttributeFromCache(invocation.Kind)
 			// The ordering of these two defers is critical. The wg.Done will release the parent go func to close the errCh
 			// that is used by the second defer to report errors. The recovery and error reporting must be done first.
 			defer wg.Done()
