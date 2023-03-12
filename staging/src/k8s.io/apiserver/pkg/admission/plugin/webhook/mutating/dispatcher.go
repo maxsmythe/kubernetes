@@ -131,10 +131,7 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 		if invocation == nil {
 			continue
 		}
-		if invocation.Error != nil {
-			//TODO: in this failed closed/rejection case should we increment any of the rejection count metrics?
-			return invocation.Error
-		}
+
 		hook, ok := invocation.Webhook.GetMutatingWebhook()
 		if !ok {
 			return fmt.Errorf("mutating webhook dispatch requires v1.MutatingWebhook, but got %T", hook)
