@@ -308,10 +308,17 @@ type ValidatingWebhook struct {
 	// and be subject to the failure policy.
 	AdmissionReviewVersions []string `json:"admissionReviewVersions" protobuf:"bytes,8,rep,name=admissionReviewVersions"`
 
-	// MatchConditions is a list of conditions on the AdmissionRequest that must be met
-	// for a request to be sent to this webhook. All conditions must be met for the request to be matched.
-	// An empty list of matchConditions matches all requests. If there is an error evaluating the condition,
-	// the error is ignored and the condition is considered matched.
+	// MatchConditions is a list of conditions that must be met for a request to be sent to this
+	// webhook. Match conditions filter requests that have already been matched by the rules,
+	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+	//
+	// The exact matching logic is (in order):
+	//   1. If ANY matchCondition evaluates to FALSE, the webhook is skipped.
+	//   2. If ALL matchConditions evaluate to TRUE, the webhook is called.
+	//   3. If any matchCondition evaluates to an error (but non are FALSE):
+	//      - If failurePolicy=Fail, reject the request
+	//      - If failurePolicy=Ignore, the webhook is called
+	//
 	// This is an alpha feature and managed by the AdmissionWebhookMatchConditions feature gate.
 	//
 	// +patchMergeKey=name
