@@ -225,12 +225,14 @@ func (a *Webhook) ShouldCallHook(ctx context.Context, h webhook.WebhookAccessor,
 		}
 
 		matcher := h.GetCompiledMatcher(a.filterCompiler, a.authorizer)
-		matchesCondition, matchConditionName, err := matcher.Match(ctx, versionedAttr, nil)
-		if err != nil {
-			// Ignore error and assume that an error is matching rather than skipping the webhook invocation on error
-			klog.V(5).Infof("Error evaluating match conditions for webhook %v, executing webhook call", h.GetName(), matchConditionName)
-		} else if !matchesCondition {
-			klog.V(5).Infof("Skipping call to webhook %v due to match condition %v", h.GetName(), matchConditionName)
+		matchResult := matcher.Match(ctx, versionedAttr, nil)
+
+		if matchResult.Error != nil {
+			klog.Warningf("Failed evaluating match conditions, failing closed %v: %v", h.GetName(), matchResult.Error)
+			return nil, apierrors.NewForbidden(attr.GetResource().GroupResource(), attr.GetName(), matchResult.Error)
+		} else if !matchResult.Matches {
+			// if no match, always skip webhook
+			klog.V(5).Infof("Skipping call to webhook %v due to match condition %v", h.GetName(), matchResult.FailedConditionName)
 			return nil, nil
 		}
 	}

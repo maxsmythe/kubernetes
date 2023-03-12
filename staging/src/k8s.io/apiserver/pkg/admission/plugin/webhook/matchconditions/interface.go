@@ -24,8 +24,14 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 )
 
+type MatchResult struct {
+	Matches             bool
+	Error               error
+	FailedConditionName string
+}
+
 // Matcher contains logic for converting Evaluations to bool of matches or does not match
 type Matcher interface {
 	// Match is used to take cel evaluations and convert into decisions
-	Match(ctx context.Context, versionedAttr *admission.VersionedAttributes, versionedParams runtime.Object) (bool, string, error)
+	Match(ctx context.Context, versionedAttr *admission.VersionedAttributes, versionedParams runtime.Object) MatchResult
 }

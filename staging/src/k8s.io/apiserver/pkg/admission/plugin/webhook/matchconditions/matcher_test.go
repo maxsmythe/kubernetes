@@ -19,7 +19,10 @@ package matchconditions
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+
+	v1 "k8s.io/api/admissionregistration/v1"
 
 	celtypes "github.com/google/cel-go/common/types"
 	"github.com/stretchr/testify/require"
@@ -51,6 +54,8 @@ func (f *fakeCelFilter) CompilationErrors() []error {
 func TestMatch(t *testing.T) {
 	fakeAttr := admission.NewAttributesRecord(nil, nil, schema.GroupVersionKind{}, "default", "foo", schema.GroupVersionResource{}, "", admission.Create, nil, false, nil)
 	fakeVersionedAttr, _ := admission.NewVersionedAttributes(fakeAttr, schema.GroupVersionKind{}, nil)
+	fail := v1.Fail
+	ignore := v1.Ignore
 
 	cases := []struct {
 		name         string
@@ -58,6 +63,8 @@ func TestMatch(t *testing.T) {
 		throwError   bool
 		shouldMatch  bool
 		returnedName string
+		failPolicy   *v1.FailurePolicyType
+		expectError  string
 	}{
 		{
 			name: "test single matches",
@@ -193,6 +200,107 @@ func TestMatch(t *testing.T) {
 			},
 			shouldMatch: true,
 			throwError:  true,
+			expectError: "test error",
+		},
+		{
+			name: "test mix of true, errors and false",
+			evaluations: []cel.EvaluationResult{
+				{
+					EvalResult:         celtypes.True,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					Error:              errors.New("test error"),
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					EvalResult:         celtypes.False,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					EvalResult:         celtypes.True,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					Error:              errors.New("test error"),
+					ExpressionAccessor: &MatchCondition{},
+				},
+			},
+			shouldMatch: false,
+			throwError:  false,
+		},
+		{
+			name: "test mix of true, errors and fail policy not set",
+			evaluations: []cel.EvaluationResult{
+				{
+					EvalResult:         celtypes.True,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					Error:              errors.New("test error"),
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					EvalResult:         celtypes.True,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					Error:              errors.New("test error"),
+					ExpressionAccessor: &MatchCondition{},
+				},
+			},
+			shouldMatch: false,
+			throwError:  false,
+			expectError: "Error evaluating match conditions for webhook testhook: test error with failurePolicyType fail",
+		},
+		{
+			name: "test mix of true, errors and fail policy fail",
+			evaluations: []cel.EvaluationResult{
+				{
+					EvalResult:         celtypes.True,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					Error:              errors.New("test error"),
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					EvalResult:         celtypes.True,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					Error:              errors.New("test error"),
+					ExpressionAccessor: &MatchCondition{},
+				},
+			},
+			failPolicy:  &fail,
+			shouldMatch: false,
+			throwError:  false,
+			expectError: "Error evaluating match conditions for webhook testhook: test error with failurePolicyType fail",
+		},
+		{
+			name: "test mix of true, errors and fail policy ignore",
+			evaluations: []cel.EvaluationResult{
+				{
+					EvalResult:         celtypes.True,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					Error:              errors.New("test error"),
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					EvalResult:         celtypes.True,
+					ExpressionAccessor: &MatchCondition{},
+				},
+				{
+					Error:              errors.New("test error"),
+					ExpressionAccessor: &MatchCondition{},
+				},
+			},
+			failPolicy:  &ignore,
+			shouldMatch: true,
+			throwError:  false,
 		},
 	}
 
@@ -203,18 +311,29 @@ func TestMatch(t *testing.T) {
 					evaluations: tc.evaluations,
 					throwError:  tc.throwError,
 				},
+				failPolicy:  tc.failPolicy,
+				webhookName: "testhook",
 			}
 			ctx := context.TODO()
-			matches, matchName, err := m.Match(ctx, fakeVersionedAttr, nil)
+			matchResult := m.Match(ctx, fakeVersionedAttr, nil)
 
-			if tc.throwError && err == nil {
+			if matchResult.Error != nil {
+				if len(tc.expectError) == 0 {
+					t.Fatal(matchResult.Error)
+				}
+				if !strings.Contains(matchResult.Error.Error(), tc.expectError) {
+					t.Fatalf("expected error containing %q, got %s", tc.expectError, matchResult.Error.Error())
+				}
+				return
+			} else if len(tc.expectError) > 0 {
+				t.Fatal("expected error but did not get one")
+			}
+			if tc.throwError && matchResult.Error == nil {
 				t.Errorf("expected error thrown when filter errors")
-			} else if !tc.throwError && err != nil {
-				t.Errorf("unexpected error thrown ")
 			}
 
-			require.Equal(t, tc.shouldMatch, matches)
-			require.Equal(t, tc.returnedName, matchName)
+			require.Equal(t, tc.shouldMatch, matchResult.Matches)
+			require.Equal(t, tc.returnedName, matchResult.FailedConditionName)
 		})
 	}
 }

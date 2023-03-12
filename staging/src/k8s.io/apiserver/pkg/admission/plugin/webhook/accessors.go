@@ -143,7 +143,7 @@ func (m *mutatingWebhookAccessor) GetCompiledMatcher(compiler cel.FilterCompiler
 				HasAuthorizer: true,
 			},
 			celconfig.PerCallLimit,
-		), authorizer, "mutating")
+		), authorizer, m.FailurePolicy, "mutating", m.Name)
 	})
 	return m.compiledMatcher
 }
@@ -271,7 +271,7 @@ func (v *validatingWebhookAccessor) GetCompiledMatcher(compiler cel.FilterCompil
 				HasAuthorizer: true,
 			},
 			celconfig.PerCallLimit,
-		), authorizer, "validating")
+		), authorizer, v.FailurePolicy, "validating", v.Name)
 	})
 	return v.compiledMatcher
 }

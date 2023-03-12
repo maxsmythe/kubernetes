@@ -131,6 +131,10 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 		if invocation == nil {
 			continue
 		}
+		if invocation.Error != nil {
+			//TODO: in this failed closed/rejection case should we increment any of the rejection count metrics?
+			return invocation.Error
+		}
 		hook, ok := invocation.Webhook.GetMutatingWebhook()
 		if !ok {
 			return fmt.Errorf("mutating webhook dispatch requires v1.MutatingWebhook, but got %T", hook)
@@ -145,8 +149,12 @@ func (a *mutatingDispatcher) Dispatch(ctx context.Context, attr admission.Attrib
 		}
 
 		// Subsequent webhook, convert existing versioned attributes to this webhook's version
-		//TODO: ivelichkovich, can maybe do similar gvk based map cache optimization as validation here and not always covert
-		if err := admission.ConvertVersionedAttributes(v.versionedAttr, invocation.Kind, o); err != nil {
+		var err error
+		versionedAttr, err = v.VersionedAttribute(attr, o, invocation.Kind)
+		if err != nil {
+			return apierrors.NewInternalError(err)
+		}
+		if err = admission.ConvertVersionedAttributes(versionedAttr, invocation.Kind, o); err != nil {
 			return apierrors.NewInternalError(err)
 		}
 

@@ -104,6 +104,7 @@ func (d *validatingDispatcher) Dispatch(ctx context.Context, attr admission.Attr
 		if invocation == nil {
 			continue
 		}
+
 		relevantHooks = append(relevantHooks, invocation)
 		_, err := versionedAttrAccessor.VersionedAttribute(attr, o, invocation.Kind)
 		if err != nil {
