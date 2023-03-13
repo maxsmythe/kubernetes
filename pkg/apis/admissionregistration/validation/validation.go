@@ -493,7 +493,7 @@ func validatingHasAcceptedAdmissionReviewVersions(webhooks []admissionregistrati
 }
 
 // ignoreMatchConditions returns false if any change to match conditions
-func ignoreMatchConditions(new, old []admissionregistration.MutatingWebhook) bool {
+func ignoreMutatingWebhookMatchConditions(new, old []admissionregistration.MutatingWebhook) bool {
 	if len(new) != len(old) {
 		return false
 	}
@@ -506,24 +506,18 @@ func ignoreMatchConditions(new, old []admissionregistration.MutatingWebhook) boo
 	return true
 }
 
-// validatingChangedMatchConditionExpressions returns true if any new expressions are added
-func validatingChangedMatchConditionExpressions(new, old []admissionregistration.ValidatingWebhook) bool {
-	expressions := sets.NewString()
-	for _, hook := range old {
-		for _, oldMatchCondition := range hook.MatchConditions {
-			expressions.Insert(oldMatchCondition.Expression)
+// ignoreMatchConditions returns true if any new expressions are added
+func ignoreValidatingWebhookMatchConditions(new, old []admissionregistration.ValidatingWebhook) bool {
+	if len(new) != len(old) {
+		return false
+	}
+	for i := range old {
+		if !reflect.DeepEqual(new[i].MatchConditions, old[i].MatchConditions) {
+			return false
 		}
 	}
 
-	for _, hook := range new {
-		for _, newMatchCondition := range hook.MatchConditions {
-			if !expressions.Has(newMatchCondition.Expression) {
-				return true
-			}
-		}
-	}
-
-	return false
+	return true
 }
 
 // mutatingHasUniqueWebhookNames returns true if all webhooks have unique names
@@ -615,7 +609,7 @@ func mutatingWebhookHasInvalidLabelValueInSelector(webhooks []admissionregistrat
 // ValidateValidatingWebhookConfigurationUpdate validates update of validating webhook configuration
 func ValidateValidatingWebhookConfigurationUpdate(newC, oldC *admissionregistration.ValidatingWebhookConfiguration) field.ErrorList {
 	return validateValidatingWebhookConfiguration(newC, validationOptions{
-		ignoreMatchConditions:                   validatingChangedMatchConditionExpressions(newC.Webhooks, oldC.Webhooks),
+		ignoreMatchConditions:                   ignoreValidatingWebhookMatchConditions(newC.Webhooks, oldC.Webhooks),
 		requireNoSideEffects:                    validatingHasNoSideEffects(oldC.Webhooks),
 		requireRecognizedAdmissionReviewVersion: validatingHasAcceptedAdmissionReviewVersions(oldC.Webhooks),
 		requireUniqueWebhookNames:               validatingHasUniqueWebhookNames(oldC.Webhooks),
@@ -626,7 +620,7 @@ func ValidateValidatingWebhookConfigurationUpdate(newC, oldC *admissionregistrat
 // ValidateMutatingWebhookConfigurationUpdate validates update of mutating webhook configuration
 func ValidateMutatingWebhookConfigurationUpdate(newC, oldC *admissionregistration.MutatingWebhookConfiguration) field.ErrorList {
 	return validateMutatingWebhookConfiguration(newC, validationOptions{
-		ignoreMatchConditions:                   ignoreMatchConditions(newC.Webhooks, oldC.Webhooks),
+		ignoreMatchConditions:                   ignoreMutatingWebhookMatchConditions(newC.Webhooks, oldC.Webhooks),
 		requireNoSideEffects:                    mutatingHasNoSideEffects(oldC.Webhooks),
 		requireRecognizedAdmissionReviewVersion: mutatingHasAcceptedAdmissionReviewVersions(oldC.Webhooks),
 		requireUniqueWebhookNames:               mutatingHasUniqueWebhookNames(oldC.Webhooks),
