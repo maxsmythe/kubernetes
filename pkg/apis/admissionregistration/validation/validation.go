@@ -211,6 +211,7 @@ func validateAdmissionReviewVersions(versions []string, requireRecognizedAdmissi
 // ValidateValidatingWebhookConfiguration validates a webhook before creation.
 func ValidateValidatingWebhookConfiguration(e *admissionregistration.ValidatingWebhookConfiguration) field.ErrorList {
 	return validateValidatingWebhookConfiguration(e, validationOptions{
+		compileCEL:                              true,
 		requireNoSideEffects:                    true,
 		requireRecognizedAdmissionReviewVersion: true,
 		requireUniqueWebhookNames:               true,
@@ -238,6 +239,7 @@ func validateValidatingWebhookConfiguration(e *admissionregistration.ValidatingW
 // ValidateMutatingWebhookConfiguration validates a webhook before creation.
 func ValidateMutatingWebhookConfiguration(e *admissionregistration.MutatingWebhookConfiguration) field.ErrorList {
 	return validateMutatingWebhookConfiguration(e, validationOptions{
+		compileCEL:                              true,
 		requireNoSideEffects:                    true,
 		requireRecognizedAdmissionReviewVersion: true,
 		requireUniqueWebhookNames:               true,
