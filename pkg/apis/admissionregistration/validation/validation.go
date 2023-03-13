@@ -492,7 +492,7 @@ func validatingHasAcceptedAdmissionReviewVersions(webhooks []admissionregistrati
 	return true
 }
 
-// ignoreMatchConditions returns true if any change to match conditions
+// ignoreMatchConditions returns false if any change to match conditions
 func ignoreMatchConditions(new, old []admissionregistration.MutatingWebhook) bool {
 	if len(new) != len(old) {
 		return false
