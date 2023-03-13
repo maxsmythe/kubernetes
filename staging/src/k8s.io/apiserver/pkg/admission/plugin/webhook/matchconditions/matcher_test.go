@@ -251,7 +251,7 @@ func TestMatch(t *testing.T) {
 			},
 			shouldMatch: false,
 			throwError:  false,
-			expectError: "Error evaluating match conditions for webhook testhook: test error with failurePolicyType fail",
+			expectError: "Error evaluating match conditions for testhook: test error with failurePolicyType fail",
 		},
 		{
 			name: "test mix of true, errors and fail policy fail",
@@ -276,7 +276,7 @@ func TestMatch(t *testing.T) {
 			failPolicy:  &fail,
 			shouldMatch: false,
 			throwError:  false,
-			expectError: "Error evaluating match conditions for webhook testhook: test error with failurePolicyType fail",
+			expectError: "Error evaluating match conditions for testhook: test error with failurePolicyType fail",
 		},
 		{
 			name: "test mix of true, errors and fail policy ignore",
