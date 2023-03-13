@@ -59,19 +59,6 @@ type matcher struct {
 	objectName  string
 }
 
-//TODO: could maybe do something like this for reusablity between VAP, VWH, MWH
-//// MatcherType specifies the type of resource the matcher is for
-//type MatcherType string
-//
-//const (
-//	// Validating is used for ValidatingWebhookConfigurations
-//	Validating MatcherType = "validating"
-//	// Mutating is used for MutatingWebhookConfigurations
-//	Mutating MatcherType = "mutating"
-//	// ValidatingPolicy is used for MutatingWebhookConfigurations
-//	ValidatingPolicy MatcherType = "validatingpolicy"
-//)
-
 func NewMatcher(filter celplugin.Filter, authorizer authorizer.Authorizer, failPolicy *v1.FailurePolicyType, matcherType, objectName string) Matcher {
 	return &matcher{
 		filter:      filter,
