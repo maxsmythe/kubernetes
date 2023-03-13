@@ -686,6 +686,7 @@ type ValidatingWebhook struct {
 	// MatchConditions is a list of conditions that must be met for a request to be sent to this
 	// webhook. Match conditions filter requests that have already been matched by the rules,
 	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+	// There are a maximum of 64 match conditions allowed.
 	//
 	// The exact matching logic is (in order):
 	//   1. If ANY matchCondition evaluates to FALSE, the webhook is skipped.
@@ -845,6 +846,7 @@ type MutatingWebhook struct {
 	// MatchConditions is a list of conditions that must be met for a request to be sent to this
 	// webhook. Match conditions filter requests that have already been matched by the rules,
 	// namespaceSelector, and objectSelector. An empty list of matchConditions matches all requests.
+	// There are a maximum of 64 match conditions allowed.
 	//
 	// The exact matching logic is (in order):
 	//   1. If ANY matchCondition evaluates to FALSE, the webhook is skipped.
@@ -978,8 +980,7 @@ type MatchCondition struct {
 	Name string
 
 	// Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
-	// ref: https://github.com/google/cel-spec
-	// CEL expressions have access to the contents of the AdmissionRequest, organized into CEL variables:
+	// CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 	//
 	// 'object' - The object from the incoming request. The value is null for DELETE requests.
 	// 'oldObject' - The existing object. The value is null for CREATE requests.
