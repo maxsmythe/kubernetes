@@ -18,6 +18,7 @@ package validation
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -211,7 +212,7 @@ func validateAdmissionReviewVersions(versions []string, requireRecognizedAdmissi
 // ValidateValidatingWebhookConfiguration validates a webhook before creation.
 func ValidateValidatingWebhookConfiguration(e *admissionregistration.ValidatingWebhookConfiguration) field.ErrorList {
 	return validateValidatingWebhookConfiguration(e, validationOptions{
-		compileCEL:                              true,
+		ignoreMatchConditions:                   false,
 		requireNoSideEffects:                    true,
 		requireRecognizedAdmissionReviewVersion: true,
 		requireUniqueWebhookNames:               true,
@@ -239,7 +240,7 @@ func validateValidatingWebhookConfiguration(e *admissionregistration.ValidatingW
 // ValidateMutatingWebhookConfiguration validates a webhook before creation.
 func ValidateMutatingWebhookConfiguration(e *admissionregistration.MutatingWebhookConfiguration) field.ErrorList {
 	return validateMutatingWebhookConfiguration(e, validationOptions{
-		compileCEL:                              true,
+		ignoreMatchConditions:                   false,
 		requireNoSideEffects:                    true,
 		requireRecognizedAdmissionReviewVersion: true,
 		requireUniqueWebhookNames:               true,
@@ -248,7 +249,7 @@ func ValidateMutatingWebhookConfiguration(e *admissionregistration.MutatingWebho
 }
 
 type validationOptions struct {
-	compileCEL                              bool
+	ignoreMatchConditions                   bool
 	requireNoSideEffects                    bool
 	requireRecognizedAdmissionReviewVersion bool
 	requireUniqueWebhookNames               bool
@@ -322,7 +323,9 @@ func validateValidatingWebhook(hook *admissionregistration.ValidatingWebhook, op
 		allErrors = append(allErrors, webhook.ValidateWebhookService(fldPath.Child("clientConfig").Child("service"), cc.Service.Name, cc.Service.Namespace, cc.Service.Path, cc.Service.Port)...)
 	}
 
-	allErrors = append(allErrors, validateMatchConditions(hook.MatchConditions, opts.compileCEL, fldPath.Child("matchConditions"))...)
+	if !opts.ignoreMatchConditions {
+		allErrors = append(allErrors, validateMatchConditions(hook.MatchConditions, fldPath.Child("matchConditions"))...)
+	}
 
 	return allErrors
 }
@@ -378,7 +381,9 @@ func validateMutatingWebhook(hook *admissionregistration.MutatingWebhook, opts v
 		allErrors = append(allErrors, webhook.ValidateWebhookService(fldPath.Child("clientConfig").Child("service"), cc.Service.Name, cc.Service.Namespace, cc.Service.Path, cc.Service.Port)...)
 	}
 
-	allErrors = append(allErrors, validateMatchConditions(hook.MatchConditions, opts.compileCEL, fldPath.Child("matchConditions"))...)
+	if !opts.ignoreMatchConditions {
+		allErrors = append(allErrors, validateMatchConditions(hook.MatchConditions, fldPath.Child("matchConditions"))...)
+	}
 
 	return allErrors
 }
@@ -487,24 +492,18 @@ func validatingHasAcceptedAdmissionReviewVersions(webhooks []admissionregistrati
 	return true
 }
 
-// mutatingChangedMatchConditionExpressions returns true if any new expressions are added
-func mutatingChangedMatchConditionExpressions(new, old []admissionregistration.MutatingWebhook) bool {
-	expressions := sets.NewString()
-	for _, hook := range old {
-		for _, oldMatchCondition := range hook.MatchConditions {
-			expressions.Insert(oldMatchCondition.Expression)
+// ignoreMatchConditions returns true if any change to match conditions
+func ignoreMatchConditions(new, old []admissionregistration.MutatingWebhook) bool {
+	if len(new) != len(old) {
+		return false
+	}
+	for i := range old {
+		if !reflect.DeepEqual(new[i].MatchConditions, old[i].MatchConditions) {
+			return false
 		}
 	}
 
-	for _, hook := range new {
-		for _, newMatchCondition := range hook.MatchConditions {
-			if !expressions.Has(newMatchCondition.Expression) {
-				return true
-			}
-		}
-	}
-
-	return false
+	return true
 }
 
 // validatingChangedMatchConditionExpressions returns true if any new expressions are added
@@ -616,7 +615,7 @@ func mutatingWebhookHasInvalidLabelValueInSelector(webhooks []admissionregistrat
 // ValidateValidatingWebhookConfigurationUpdate validates update of validating webhook configuration
 func ValidateValidatingWebhookConfigurationUpdate(newC, oldC *admissionregistration.ValidatingWebhookConfiguration) field.ErrorList {
 	return validateValidatingWebhookConfiguration(newC, validationOptions{
-		compileCEL:                              validatingChangedMatchConditionExpressions(newC.Webhooks, oldC.Webhooks),
+		ignoreMatchConditions:                   validatingChangedMatchConditionExpressions(newC.Webhooks, oldC.Webhooks),
 		requireNoSideEffects:                    validatingHasNoSideEffects(oldC.Webhooks),
 		requireRecognizedAdmissionReviewVersion: validatingHasAcceptedAdmissionReviewVersions(oldC.Webhooks),
 		requireUniqueWebhookNames:               validatingHasUniqueWebhookNames(oldC.Webhooks),
@@ -627,7 +626,7 @@ func ValidateValidatingWebhookConfigurationUpdate(newC, oldC *admissionregistrat
 // ValidateMutatingWebhookConfigurationUpdate validates update of mutating webhook configuration
 func ValidateMutatingWebhookConfigurationUpdate(newC, oldC *admissionregistration.MutatingWebhookConfiguration) field.ErrorList {
 	return validateMutatingWebhookConfiguration(newC, validationOptions{
-		compileCEL:                              mutatingChangedMatchConditionExpressions(newC.Webhooks, oldC.Webhooks),
+		ignoreMatchConditions:                   ignoreMatchConditions(newC.Webhooks, oldC.Webhooks),
 		requireNoSideEffects:                    mutatingHasNoSideEffects(oldC.Webhooks),
 		requireRecognizedAdmissionReviewVersion: mutatingHasAcceptedAdmissionReviewVersions(oldC.Webhooks),
 		requireUniqueWebhookNames:               mutatingHasUniqueWebhookNames(oldC.Webhooks),
@@ -829,14 +828,14 @@ func validateNamedRuleWithOperations(n *admissionregistration.NamedRuleWithOpera
 	return allErrors
 }
 
-func validateMatchConditions(m []admissionregistration.MatchCondition, compileCEL bool, fldPath *field.Path) field.ErrorList {
+func validateMatchConditions(m []admissionregistration.MatchCondition, fldPath *field.Path) field.ErrorList {
 	var allErrors field.ErrorList
 	conditionNames := sets.NewString()
 	if len(m) > 64 {
 		allErrors = append(allErrors, field.TooMany(fldPath, len(m), 64))
 	}
 	for i, matchCondition := range m {
-		allErrors = append(allErrors, validateMatchCondition(&matchCondition, compileCEL, fldPath.Index(i))...)
+		allErrors = append(allErrors, validateMatchCondition(&matchCondition, fldPath.Index(i))...)
 		if len(matchCondition.Name) > 0 {
 			if conditionNames.Has(matchCondition.Name) {
 				allErrors = append(allErrors, field.Duplicate(fldPath.Index(i).Child("name"), matchCondition.Name))
@@ -848,12 +847,12 @@ func validateMatchConditions(m []admissionregistration.MatchCondition, compileCE
 	return allErrors
 }
 
-func validateMatchCondition(v *admissionregistration.MatchCondition, compileCEL bool, fldPath *field.Path) field.ErrorList {
+func validateMatchCondition(v *admissionregistration.MatchCondition, fldPath *field.Path) field.ErrorList {
 	var allErrors field.ErrorList
 	trimmedExpression := strings.TrimSpace(v.Expression)
 	if len(trimmedExpression) == 0 {
 		allErrors = append(allErrors, field.Required(fldPath.Child("expression"), ""))
-	} else if compileCEL {
+	} else {
 		result := plugincel.CompileCELExpression(
 			&matchconditions.MatchCondition{
 				Expression: trimmedExpression,
