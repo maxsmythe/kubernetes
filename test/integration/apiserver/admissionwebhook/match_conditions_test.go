@@ -107,15 +107,19 @@ func newMatchConditionHandler(recorder *admissionRecorder) http.Handler {
 	})
 }
 
-// Test_MatchConditions tests a ValidatingWebhookConfigurations that validates different cases of matchCondition fields
-// a webhook is created with failPolicy fail to force all matching conditions to fail
-func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
+// Test_MatchConditions tests ValidatingWebhookConfigurations and MutatingWebhookConfigurations that validates different cases of matchCondition fields
+func Test_MatchConditions(t *testing.T) {
+	fail := admissionregistrationv1.Fail
+	ignore := admissionregistrationv1.Ignore
+
 	testcases := []struct {
 		name            string
 		matchConditions []admissionregistrationv1.MatchCondition
 		pods            []*corev1.Pod
 		matchedPods     []*corev1.Pod
-		expectError     bool
+		expectErrorWH   bool
+		expectErrorPod  bool
+		failPolicy      *admissionregistrationv1.FailurePolicyType
 	}{
 		{
 			name: "pods in namespace kube-system is ignored",
@@ -132,7 +136,7 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 			matchedPods: []*corev1.Pod{
 				matchConditionsTestPod("test2", "default"),
 			},
-			expectError: false,
+			expectErrorWH: false,
 		},
 		{
 			name: "matchConditions are ANDed together",
@@ -154,13 +158,114 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 			matchedPods: []*corev1.Pod{
 				matchConditionsTestPod("test1", "default"),
 			},
-			expectError: false,
+			expectErrorWH: false,
 		},
 		{
-			name: "runtime error evaluating match condition should match all",
+			name: "mix of true, error and false should not match and not call webhook",
 			matchConditions: []admissionregistrationv1.MatchCondition{
 				{
-					Name:       "runtime-error.kubernetes.io",
+					Name:       "test1",
+					Expression: "object.nonExistentProperty == 'someval'",
+				},
+				{
+					Name:       "test2",
+					Expression: "true",
+				},
+				{
+					Name:       "test3",
+					Expression: "false",
+				},
+				{
+					Name:       "test4",
+					Expression: "true",
+				},
+				{
+					Name:       "test5",
+					Expression: "object.nonExistentProperty == 'someval'",
+				},
+			},
+			pods: []*corev1.Pod{
+				matchConditionsTestPod("test1", "kube-system"),
+				matchConditionsTestPod("test2", "default"),
+			},
+			matchedPods:    []*corev1.Pod{},
+			expectErrorWH:  false,
+			expectErrorPod: false,
+		},
+		{
+			name: "mix of true and error should reject request without fail policy",
+			matchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "test1",
+					Expression: "object.nonExistentProperty == 'someval'",
+				},
+				{
+					Name:       "test2",
+					Expression: "true",
+				},
+				{
+					Name:       "test4",
+					Expression: "true",
+				},
+				{
+					Name:       "test5",
+					Expression: "object.nonExistentProperty == 'someval'",
+				},
+			},
+			pods: []*corev1.Pod{
+				matchConditionsTestPod("test1", "kube-system"),
+				matchConditionsTestPod("test2", "default"),
+			},
+			matchedPods:    []*corev1.Pod{},
+			expectErrorWH:  false,
+			expectErrorPod: true,
+		},
+		{
+			name: "mix of true and error should reject request with fail policy fail",
+			matchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "test1",
+					Expression: "object.nonExistentProperty == 'someval'",
+				},
+				{
+					Name:       "test2",
+					Expression: "true",
+				},
+				{
+					Name:       "test4",
+					Expression: "true",
+				},
+				{
+					Name:       "test5",
+					Expression: "object.nonExistentProperty == 'someval'",
+				},
+			},
+			pods: []*corev1.Pod{
+				matchConditionsTestPod("test1", "kube-system"),
+				matchConditionsTestPod("test2", "default"),
+			},
+			matchedPods:    []*corev1.Pod{},
+			failPolicy:     &fail,
+			expectErrorWH:  false,
+			expectErrorPod: true,
+		},
+		{
+			name: "mix of true and error should match request and call webhook with fail policy ignore",
+			matchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "tes1",
+					Expression: "object.nonExistentProperty == 'someval'",
+				},
+				{
+					Name:       "test2",
+					Expression: "true",
+				},
+				{
+					Name:       "test4",
+					Expression: "true",
+				},
+				{
+					Name:       "test5",
 					Expression: "object.nonExistentProperty == 'someval'",
 				},
 			},
@@ -172,28 +277,8 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 				matchConditionsTestPod("test1", "kube-system"),
 				matchConditionsTestPod("test2", "default"),
 			},
-			expectError: false,
-		},
-		{
-			name: "runtime error AND namespace select should still honor namespace select",
-			matchConditions: []admissionregistrationv1.MatchCondition{
-				{
-					Name:       "runtime-error.kubernetes.io",
-					Expression: "object.nonExistentProperty == 'someval'",
-				},
-				{
-					Name:       "pods-in-kube-system-exempt.kubernetes.io",
-					Expression: "object.metadata.namespace != 'kube-system'",
-				},
-			},
-			pods: []*corev1.Pod{
-				matchConditionsTestPod("test1", "kube-system"),
-				matchConditionsTestPod("test2", "default"),
-			},
-			matchedPods: []*corev1.Pod{
-				matchConditionsTestPod("test2", "default"),
-			},
-			expectError: false,
+			failPolicy:    &ignore,
+			expectErrorWH: false,
 		},
 		{
 			name: "has access to oldObject",
@@ -209,7 +294,7 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 			matchedPods: []*corev1.Pod{
 				matchConditionsTestPod("test2", "default"),
 			},
-			expectError: false,
+			expectErrorWH: false,
 		},
 		{
 			name: "invalid field should error",
@@ -219,9 +304,9 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 					Expression: "imnotafield == null",
 				},
 			},
-			pods:        []*corev1.Pod{},
-			matchedPods: []*corev1.Pod{},
-			expectError: true,
+			pods:          []*corev1.Pod{},
+			matchedPods:   []*corev1.Pod{},
+			expectErrorWH: true,
 		},
 		{
 			name: "missing expression should error",
@@ -230,32 +315,32 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 					Name: "old-object-is-null.kubernetes.io",
 				},
 			},
-			pods:        []*corev1.Pod{},
-			matchedPods: []*corev1.Pod{},
-			expectError: true,
+			pods:          []*corev1.Pod{},
+			matchedPods:   []*corev1.Pod{},
+			expectErrorWH: true,
 		},
 		{
 			name: "missing name should error",
 			matchConditions: []admissionregistrationv1.MatchCondition{
 				{
-					Expression: "imnotafield == null",
+					Expression: "oldObject == null",
 				},
 			},
-			pods:        []*corev1.Pod{},
-			matchedPods: []*corev1.Pod{},
-			expectError: true,
+			pods:          []*corev1.Pod{},
+			matchedPods:   []*corev1.Pod{},
+			expectErrorWH: true,
 		},
 		{
 			name: "empty name should error",
 			matchConditions: []admissionregistrationv1.MatchCondition{
 				{
 					Name:       "",
-					Expression: "imnotafield == null",
+					Expression: "oldObject == null",
 				},
 			},
-			pods:        []*corev1.Pod{},
-			matchedPods: []*corev1.Pod{},
-			expectError: true,
+			pods:          []*corev1.Pod{},
+			matchedPods:   []*corev1.Pod{},
+			expectErrorWH: true,
 		},
 		{
 			name: "empty expression should error",
@@ -265,9 +350,37 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 					Expression: "",
 				},
 			},
-			pods:        []*corev1.Pod{},
-			matchedPods: []*corev1.Pod{},
-			expectError: true,
+			pods:          []*corev1.Pod{},
+			matchedPods:   []*corev1.Pod{},
+			expectErrorWH: true,
+		},
+		{
+			name: "duplicate name should error",
+			matchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "test1",
+					Expression: "oldObject == null",
+				},
+				{
+					Name:       "test1",
+					Expression: "oldObject == null",
+				},
+			},
+			pods:          []*corev1.Pod{},
+			matchedPods:   []*corev1.Pod{},
+			expectErrorWH: true,
+		},
+		{
+			name: "name must be qualified name",
+			matchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       " test1",
+					Expression: "oldObject == null",
+				},
+			},
+			pods:          []*corev1.Pod{},
+			matchedPods:   []*corev1.Pod{},
+			expectErrorWH: true,
 		},
 	}
 
@@ -323,7 +436,6 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			fail := admissionregistrationv1.Fail
 			endpoint := webhookServer.URL
 			markerEndpoint := webhookServer.URL + "/marker"
 			validatingwebhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
@@ -334,7 +446,7 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 					{
 						Name: "admission.integration.test",
 						Rules: []admissionregistrationv1.RuleWithOperations{{
-							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
 							Rule: admissionregistrationv1.Rule{
 								APIGroups:   []string{""},
 								APIVersions: []string{"v1"},
@@ -354,7 +466,7 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 									Values:   []string{"marker"},
 								},
 							}},
-						FailurePolicy:           &fail,
+						FailurePolicy:           testcase.failPolicy,
 						SideEffects:             &noSideEffects,
 						AdmissionReviewVersions: []string{"v1"},
 						MatchConditions:         testcase.matchConditions,
@@ -373,24 +485,146 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 							corev1.LabelMetadataName: "marker",
 						}},
 						ObjectSelector:          &metav1.LabelSelector{MatchLabels: map[string]string{"marker": "true"}},
-						FailurePolicy:           &fail,
+						FailurePolicy:           testcase.failPolicy,
 						SideEffects:             &noSideEffects,
 						AdmissionReviewVersions: []string{"v1"},
 					},
 				},
 			}
 
-			cfg, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.TODO(), validatingwebhook, metav1.CreateOptions{})
-			if testcase.expectError == false && err != nil {
+			validatingcfg, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.TODO(), validatingwebhook, metav1.CreateOptions{})
+			if testcase.expectErrorWH == false && err != nil {
 				t.Fatal(err)
-			} else if testcase.expectError == true {
+			} else if testcase.expectErrorWH == true {
 				if err == nil {
-					t.Error("expected error creating ValidatingWebhookConfigurations")
+					t.Fatal("expected error creating ValidatingWebhookConfigurations")
+				}
+				return
+			}
+			vhwHasBeenCleanedUp := false
+			defer func() {
+				if !vhwHasBeenCleanedUp {
+					err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), validatingcfg.GetName(), metav1.DeleteOptions{})
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+			}()
+
+			// wait until new webhook is called the first time
+			if err := wait.PollImmediate(time.Millisecond*5, wait.ForeverTestTimeout, func() (bool, error) {
+				_, err = client.CoreV1().Pods(markerNs).Patch(context.TODO(), marker.Name, types.JSONPatchType, []byte("[]"), metav1.PatchOptions{})
+				select {
+				case <-upCh:
+					return true, nil
+				default:
+					t.Logf("Waiting for webhook to become effective, getting marker object: %v", err)
+					return false, nil
+				}
+			}); err != nil {
+				t.Fatal(err)
+			}
+
+			for _, pod := range testcase.pods {
+				_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+				if testcase.expectErrorPod == false && err != nil {
+					t.Fatalf("unexpected error creating test pod: %v", err)
+				} else if testcase.expectErrorWH == true {
+					if err == nil {
+						t.Fatal("expected error creating pods")
+					}
+					return
+				}
+			}
+
+			if len(recorder.requests) != len(testcase.matchedPods) {
+				t.Errorf("unexpected requests %v, expected %v", recorder.requests, testcase.matchedPods)
+			}
+
+			for i, request := range recorder.requests {
+				if request.Name != testcase.matchedPods[i].Name {
+					t.Errorf("unexpected pod name %v, expected %v", request.Name, testcase.matchedPods[i].Name)
+				}
+				if request.Namespace != testcase.matchedPods[i].Namespace {
+					t.Errorf("unexpected pod namespace %v, expected %v", request.Namespace, testcase.matchedPods[i].Namespace)
+				}
+			}
+
+			//Reset and rerun against mutating webhook configuration
+			//TODO: private helper function for validation after creating vwh or mwh
+			upCh = recorder.Reset()
+			err = client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), validatingcfg.GetName(), metav1.DeleteOptions{})
+			if err != nil {
+				t.Fatal(err)
+			} else {
+				vhwHasBeenCleanedUp = true
+			}
+
+			mutatingwebhook := &admissionregistrationv1.MutatingWebhookConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "admission.integration.test",
+				},
+				Webhooks: []admissionregistrationv1.MutatingWebhook{
+					{
+						Name: "admission.integration.test",
+						Rules: []admissionregistrationv1.RuleWithOperations{{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						}},
+						ClientConfig: admissionregistrationv1.WebhookClientConfig{
+							URL:      &endpoint,
+							CABundle: localhostCert,
+						},
+						// ignore pods in the marker namespace
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      corev1.LabelMetadataName,
+									Operator: metav1.LabelSelectorOpNotIn,
+									Values:   []string{"marker"},
+								},
+							}},
+						FailurePolicy:           testcase.failPolicy,
+						SideEffects:             &noSideEffects,
+						AdmissionReviewVersions: []string{"v1"},
+						MatchConditions:         testcase.matchConditions,
+					},
+					{
+						Name: "admission.integration.test.marker",
+						Rules: []admissionregistrationv1.RuleWithOperations{{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
+							Rule:       admissionregistrationv1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"pods"}},
+						}},
+						ClientConfig: admissionregistrationv1.WebhookClientConfig{
+							URL:      &markerEndpoint,
+							CABundle: localhostCert,
+						},
+						NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+							corev1.LabelMetadataName: "marker",
+						}},
+						ObjectSelector:          &metav1.LabelSelector{MatchLabels: map[string]string{"marker": "true"}},
+						FailurePolicy:           testcase.failPolicy,
+						SideEffects:             &noSideEffects,
+						AdmissionReviewVersions: []string{"v1"},
+					},
+				},
+			}
+
+			mutatingcfg, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.TODO(), mutatingwebhook, metav1.CreateOptions{})
+			if testcase.expectErrorWH == false && err != nil {
+				t.Fatal(err)
+			} else if testcase.expectErrorWH == true {
+				if err == nil {
+					t.Fatal("expected error creating MutatingWebhookConfiguration")
 				}
 				return
 			}
 			defer func() {
-				err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), cfg.GetName(), metav1.DeleteOptions{})
+				err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), mutatingcfg.GetName(), metav1.DeleteOptions{})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -411,9 +645,21 @@ func Test_MatchConditions_ValidatingWebhookConfiguration(t *testing.T) {
 			}
 
 			for _, pod := range testcase.pods {
-				_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
-				if err != nil {
+				if !testcase.expectErrorPod {
+					err := client.CoreV1().Pods(pod.Namespace).Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+					//TODO: should probably confirm deleted
+					if err != nil {
+						t.Errorf("unexpected error deleting pods %v", err.Error())
+					}
+				}
+				_, err = client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+				if testcase.expectErrorPod == false && err != nil {
 					t.Fatalf("unexpected error creating test pod: %v", err)
+				} else if testcase.expectErrorWH == true {
+					if err == nil {
+						t.Fatal("expected error creating pods")
+					}
+					return
 				}
 			}
 
