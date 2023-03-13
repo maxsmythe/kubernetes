@@ -311,8 +311,8 @@ func TestMatch(t *testing.T) {
 					evaluations: tc.evaluations,
 					throwError:  tc.throwError,
 				},
-				failPolicy:  tc.failPolicy,
-				webhookName: "testhook",
+				failPolicy: tc.failPolicy,
+				objectName: "testhook",
 			}
 			ctx := context.TODO()
 			matchResult := m.Match(ctx, fakeVersionedAttr, nil)

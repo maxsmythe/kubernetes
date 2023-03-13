@@ -56,17 +56,30 @@ type matcher struct {
 	filter      celplugin.Filter
 	authorizer  authorizer.Authorizer
 	failPolicy  *v1.FailurePolicyType
-	webhookType string
-	webhookName string
+	matcherType string
+	objectName  string
 }
 
-func NewMatcher(filter celplugin.Filter, authorizer authorizer.Authorizer, failPolicy *v1.FailurePolicyType, webhookType, webhookName string) Matcher {
+//TODO: could maybe do something like this for reusablity between VAP, VWH, MWH
+//// MatcherType specifies the type of resource the matcher is for
+//type MatcherType string
+//
+//const (
+//	// Validating is used for ValidatingWebhookConfigurations
+//	Validating MatcherType = "validating"
+//	// Mutating is used for MutatingWebhookConfigurations
+//	Mutating MatcherType = "mutating"
+//	// ValidatingPolicy is used for MutatingWebhookConfigurations
+//	ValidatingPolicy MatcherType = "validatingpolicy"
+//)
+
+func NewMatcher(filter celplugin.Filter, authorizer authorizer.Authorizer, failPolicy *v1.FailurePolicyType, matcherType, objectName string) Matcher {
 	return &matcher{
 		filter:      filter,
 		authorizer:  authorizer,
 		failPolicy:  failPolicy,
-		webhookType: webhookType,
-		webhookName: webhookName,
+		matcherType: matcherType,
+		objectName:  objectName,
 	}
 }
 
@@ -81,7 +94,7 @@ func (m *matcher) Match(ctx context.Context, versionedAttr *admission.VersionedA
 	evalResults, err := m.filter.ForInput(ctx, versionedAttr, celplugin.CreateAdmissionRequest(versionedAttr.Attributes), celplugin.OptionalVariableBindings{
 		VersionedParams: versionedParams,
 		Authorizer:      m.authorizer,
-	}, celconfig.PerCallLimit)
+	}, celconfig.RuntimeCELCostBudgetMatchConditions)
 
 	//TODO: add event to webhook object for error
 	if err != nil {
@@ -106,7 +119,8 @@ func (m *matcher) Match(ctx context.Context, versionedAttr *admission.VersionedA
 		}
 		if evalResult.Error != nil {
 			errorList = append(errorList, evalResult.Error)
-			admissionmetrics.Metrics.ObserveMatchConditionEvalError(ctx, matchCondition.Name, m.webhookType)
+			//TODO: what's the best way to handle this metric since its reused by VAP for match conditions
+			admissionmetrics.Metrics.ObserveMatchConditionEvalError(ctx, m.objectName, m.matcherType)
 		}
 		if evalResult.EvalResult == celtypes.False {
 			// If any condition false, skip calling webhook always
@@ -126,16 +140,16 @@ func (m *matcher) Match(ctx context.Context, versionedAttr *admission.VersionedA
 					utilruntime.HandleError(errorList[i])
 				}
 			}
-			err = errors.New(fmt.Sprintf("Error evaluating match conditions for webhook %v: %v with failurePolicyType fail", m.webhookName, errorList[0]))
+			err = errors.New(fmt.Sprintf("Error evaluating match conditions for %v: %v with failurePolicyType fail", m.objectName, errorList[0]))
 			return MatchResult{
 				Error: err,
 			}
-		} else {
+		} else if f == v1.Ignore {
+			// if fail policy ignore then call webhook
 			return MatchResult{
 				Matches: true,
 			}
 		}
-		//TODO: discussion around what to do for failPolicy ignore was not clear, this implementation just ignores the failure if fail policy is ignore and webhook will be called
 	}
 	// if no results eval to false, return matches true with list of any errors encountered
 	return MatchResult{

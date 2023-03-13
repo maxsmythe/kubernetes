@@ -17,6 +17,7 @@ limitations under the License.
 package validation
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -944,6 +945,35 @@ func TestValidateValidatingWebhookConfiguration(t *testing.T) {
 				},
 			}, true),
 			expectedError: ``,
+		},
+		{
+			name: "must evaluate to bool",
+			config: newValidatingWebhookConfiguration([]admissionregistration.ValidatingWebhook{
+				{
+					Name:         "webhook.k8s.io",
+					ClientConfig: validClientConfig,
+					SideEffects:  &noSideEffect,
+					MatchConditions: []admissionregistration.MatchCondition{
+						{
+							Name:       "webhook.k8s.io",
+							Expression: "6",
+						},
+					},
+				},
+			}, true),
+			expectedError: `webhooks[0].matchConditions[0].expression: Invalid value: "6": must evaluate to bool`,
+		},
+		{
+			name: "max of 64 match conditions",
+			config: newValidatingWebhookConfiguration([]admissionregistration.ValidatingWebhook{
+				{
+					Name:            "webhook.k8s.io",
+					ClientConfig:    validClientConfig,
+					SideEffects:     &noSideEffect,
+					MatchConditions: get65MatchConditions(),
+				},
+			}, true),
+			expectedError: `webhooks[0].matchConditions: Too many: 65: must have at most 64 items`,
 		},
 	}
 	for _, test := range tests {
@@ -2038,6 +2068,35 @@ func TestValidateMutatingWebhookConfiguration(t *testing.T) {
 				},
 			}, true),
 			expectedError: ``,
+		},
+		{
+			name: "must evaluate to bool",
+			config: newMutatingWebhookConfiguration([]admissionregistration.MutatingWebhook{
+				{
+					Name:         "webhook.k8s.io",
+					ClientConfig: validClientConfig,
+					SideEffects:  &noSideEffect,
+					MatchConditions: []admissionregistration.MatchCondition{
+						{
+							Name:       "webhook.k8s.io",
+							Expression: "6",
+						},
+					},
+				},
+			}, true),
+			expectedError: `webhooks[0].matchConditions[0].expression: Invalid value: "6": must evaluate to bool`,
+		},
+		{
+			name: "max of 64 match conditions",
+			config: newMutatingWebhookConfiguration([]admissionregistration.MutatingWebhook{
+				{
+					Name:            "webhook.k8s.io",
+					ClientConfig:    validClientConfig,
+					SideEffects:     &noSideEffect,
+					MatchConditions: get65MatchConditions(),
+				},
+			}, true),
+			expectedError: `webhooks[0].matchConditions: Too many: 65: must have at most 64 items`,
 		},
 	}
 	for _, test := range tests {
@@ -3809,4 +3868,15 @@ func TestValidateValidatingAdmissionPolicyBindingUpdate(t *testing.T) {
 		})
 
 	}
+}
+
+func get65MatchConditions() []admissionregistration.MatchCondition {
+	result := []admissionregistration.MatchCondition{}
+	for i := 0; i < 65; i++ {
+		result = append(result, admissionregistration.MatchCondition{
+			Name:       fmt.Sprintf("test%v", i),
+			Expression: "true",
+		})
+	}
+	return result
 }
